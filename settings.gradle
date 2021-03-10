@@ -1,0 +1,4 @@
+include ':lib_byteutil_api'
+include ':lib_byteutil_plugin'
+include ':app'
+rootProject.name = "ByteUtil"

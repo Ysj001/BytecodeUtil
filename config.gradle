@@ -1,0 +1,39 @@
+ext {
+
+    // ------------------ module ------------------
+    androidConfig = [
+            compileSdkVersion        : 29,
+            buildToolsVersion        : "29.0.3",
+            minSdkVersion            : 19,
+            targetSdkVersion         : 29,
+            versionCode              : 1,
+            versionName              : "1.0.0",
+            renderscriptTargetApi    : 19,
+            // 混淆开关
+            mix                      : false,
+            testInstrumentationRunner: 'androidx.test.runner.AndroidJUnitRunner',
+    ]
+
+    // ------------------ android support widget ------------------
+    androidSupport = [
+            [method: 'api', value: "androidx.appcompat:appcompat:1.2.0"],
+            [method: 'api', value: "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0-alpha03"],
+            [method: 'api', value: "com.google.android.material:material:1.2.1"],
+            [method: 'api', value: "androidx.legacy:legacy-support-v4:1.0.0"],
+            [method: 'api', value: "androidx.constraintlayout:constraintlayout:1.1.3"],
+    ]
+
+    // ------------------ test ------------------
+    androidTest = [
+            [method: 'testImplementation', value: 'junit:junit:4.+'],
+            [method: 'androidTestImplementation', value: 'androidx.test.ext:junit:1.1.2'],
+            [method: 'androidTestImplementation', value: 'androidx.test.espresso:espresso-core:3.3.0'],
+    ]
+
+    // ------------------ base ------------------
+    base = [
+//            [method: 'api', value: "com.orhanobut:logger:2.2.0"],
+//            [method: 'api', value: "com.google.code.gson:gson:2.8.6"],
+    ]
+
+}
