@@ -1,7 +1,8 @@
 package com.ysj.lib.byteutil.plugin.core.modifier
 
 import com.android.build.api.transform.Transform
-import com.ysj.lib.byteutil.plugin.core.modifier.impl.AopModifier
+import com.ysj.lib.byteutil.plugin.core.modifier.impl.aspect.AspectModifier
+import com.ysj.lib.byteutil.plugin.core.modifier.impl.di.DIModifier
 import org.objectweb.asm.tree.ClassNode
 
 /**
@@ -16,7 +17,8 @@ class ModifierManager(override val transform: Transform) : IModifier {
 
     private val modifiers: Collection<IModifier> by lazy {
         arrayListOf(
-            AopModifier(transform, allClassNode),
+            AspectModifier(transform, allClassNode),
+            DIModifier(transform, allClassNode),
         )
     }
 

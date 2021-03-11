@@ -1,7 +1,6 @@
-package com.ysj.lib.byteutil.plugin.core.modifier.impl
+package com.ysj.lib.byteutil.plugin.core.modifier.impl.aspect
 
 import com.android.build.api.transform.Transform
-import com.ysj.lib.byteutil.api.PointcutBean
 import com.ysj.lib.byteutil.api.aspect.Aspect
 import com.ysj.lib.byteutil.api.aspect.JoinPoint
 import com.ysj.lib.byteutil.api.aspect.Pointcut
@@ -14,12 +13,12 @@ import org.objectweb.asm.tree.*
 import java.util.regex.Pattern
 
 /**
- *
+ * 用于处理 [Aspect] , [Pointcut] 来实现切面的修改器
  *
  * @author Ysj
  * Create time: 2021/3/6
  */
-class AopModifier(
+class AspectModifier(
     override val transform: Transform,
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
