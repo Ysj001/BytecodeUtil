@@ -27,7 +27,7 @@ import java.util.zip.ZipEntry
 class YAopTransform(private val project: Project) : Transform() {
 
     companion object {
-        const val PLUGIN_NAME = "YAopPlugin"
+        const val PLUGIN_NAME = "BytecodeUtilPlugin"
     }
 
     private val logger = YLogger.getLogger(javaClass)
