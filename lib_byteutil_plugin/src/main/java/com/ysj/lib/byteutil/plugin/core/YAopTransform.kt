@@ -88,9 +88,9 @@ class YAopTransform(private val project: Project) : Transform() {
                             if (it.name.endsWith(".class")) {
                                 //                    logger.quiet("process jar element --> ${element.name}")
                                 val cr = ClassReader(ips)
-                                val cw = ClassWriter(cr, ClassWriter.COMPUTE_MAXS)
+                                val cw = ClassWriter(cr, ClassWriter.COMPUTE_FRAMES)
                                 val cv = ClassNode()
-                                cr.accept(cv, ClassReader.EXPAND_FRAMES)
+                                cr.accept(cv, 0)
                                 modifierManager.modify(cv)
                                 cv.accept(cw)
                                 jos.putNextEntry(zipEntry)
@@ -121,9 +121,9 @@ class YAopTransform(private val project: Project) : Transform() {
 //                logger.quiet("process file --> ${it.name}")
                 it.inputStream().use { fis ->
                     val cr = ClassReader(fis)
-                    val cw = ClassWriter(cr, 0)
+                    val cw = ClassWriter(cr, ClassWriter.COMPUTE_FRAMES)
                     val cv = ClassNode()
-                    cr.accept(cv, ClassReader.EXPAND_FRAMES)
+                    cr.accept(cv, 0)
                     modifierManager.modify(cv)
                     cv.accept(cw)
                     FileOutputStream(it).use { fos ->
@@ -168,7 +168,7 @@ class YAopTransform(private val project: Project) : Transform() {
         inputStream.use {
             val cr = ClassReader(it)
             val cv = ClassNode()
-            cr.accept(cv, ClassReader.EXPAND_FRAMES)
+            cr.accept(cv, 0)
             modifierManager.scan(cv)
         }
     }
