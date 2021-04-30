@@ -5,8 +5,7 @@ import com.ysj.lib.byteutil.api.aspect.Aspect
 import com.ysj.lib.byteutil.api.aspect.JoinPoint
 import com.ysj.lib.byteutil.api.aspect.Pointcut
 import com.ysj.lib.byteutil.plugin.core.logger.YLogger
-import com.ysj.lib.byteutil.plugin.core.modifier.IModifier
-import org.codehaus.groovy.ast.ClassHelper
+import com.ysj.lib.byteutil.plugin.core.modifier.*
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
@@ -56,10 +55,7 @@ class AspectModifier(
             """.trimIndent()
             )
             // 收集 Pointcut 注解的参数
-            val params = HashMap<String, Any>()
-            for (i in 0 until pointCutAnnotation.values.size step 2) {
-                params[pointCutAnnotation.values[i] as String] = pointCutAnnotation.values[i + 1]
-            }
+            val params = pointCutAnnotation.params()
             val orgTarget = params[Pointcut::target.name] as String
             val target = orgTarget.substringAfter(":")
             val targetType = orgTarget.substringBefore(":")
@@ -118,23 +114,19 @@ class AspectModifier(
         clint.instructions.insertBefore(clint.instructions.first, InsnList().apply {
             add(TypeInsnNode(Opcodes.NEW, classNode.name))
             add(InsnNode(Opcodes.DUP))
-            add(
-                MethodInsnNode(
-                    Opcodes.INVOKESPECIAL,
-                    classNode.name,
-                    "<init>",
-                    "()V",
-                    false
-                )
-            )
-            add(
-                FieldInsnNode(
-                    Opcodes.PUTSTATIC,
-                    classNode.name,
-                    fieldInstance.name,
-                    fieldInstance.desc
-                )
-            )
+            add(MethodInsnNode(
+                Opcodes.INVOKESPECIAL,
+                classNode.name,
+                "<init>",
+                "()V",
+                false
+            ))
+            add(FieldInsnNode(
+                Opcodes.PUTSTATIC,
+                classNode.name,
+                fieldInstance.name,
+                fieldInstance.desc
+            ))
         })
     }
 
@@ -149,111 +141,63 @@ class AspectModifier(
                             && Pattern.matches(pointcut.funDesc, methodNode.desc)
                 }
                 .forEach { methodNode ->
+                    val insnList = methodNode.instructions
+                    val orgInsn = insnList.toArray()
+                    val firstLabel = orgInsn.find { it is LabelNode } as LabelNode
                     // 切面方法的参数
                     val aspectFunArgs = Type.getArgumentTypes(pointcut.aspectFunDesc)
-                    // 当前方法的参数
-                    val argumentTypes = Type.getArgumentTypes(methodNode.desc)
-                    val instructions = methodNode.instructions
-                    instructions.insertBefore(
-                        if (pointcut.position == -1) instructions.get(instructions.size() - 2)
-                        else instructions.get(pointcut.position),
-                        InsnList().apply {
-                            // 操作数
-                            var opNum = 1
-                            if (aspectFunArgs.isNotEmpty()) {
-                                // 1.将方法中的参数存到数组中 Object[] args = {arg1, arg2, arg3, ...};
-                                add(IntInsnNode(Opcodes.BIPUSH, argumentTypes.size))
-                                add(
-                                    TypeInsnNode(
-                                        Opcodes.ANEWARRAY,
-                                        Type.getType(Any::class.java).internalName
-                                    )
-                                )
-                                argumentTypes.forEachIndexed { i, t ->
-                                    add(InsnNode(Opcodes.DUP))
-                                    add(IntInsnNode(Opcodes.BIPUSH, i))
-                                    add(
-                                        VarInsnNode(
-                                            when (t.sort) {
-                                                Type.VOID,
-                                                Type.ARRAY,
-                                                Type.OBJECT,
-                                                Type.METHOD -> Opcodes.ALOAD
-                                                Type.FLOAT -> Opcodes.FLOAD
-                                                Type.LONG -> Opcodes.LLOAD
-                                                Type.DOUBLE -> Opcodes.DLOAD
-                                                else -> Opcodes.ILOAD
-                                            },
-                                            opNum
-                                        )
-                                    )
-                                    if (t.sort in Type.BOOLEAN..Type.DOUBLE) {
-                                        // primitive types must be boxed
-                                        val wrapperType = Type.getType(
-                                            Class.forName(
-                                                ClassHelper.getWrapper(ClassHelper.make(t.className)).name
-                                            )
-                                        )
-                                        add(
-                                            MethodInsnNode(
-                                                Opcodes.INVOKESTATIC,
-                                                wrapperType.internalName,
-                                                "valueOf",
-                                                "(${t.descriptor})${wrapperType.descriptor}",
-                                                false
-                                            )
-                                        )
-                                    }
-                                    add(InsnNode(Opcodes.AASTORE))
-                                    // 计算操作数
-                                    opNum += if (t.sort == Type.LONG || t.sort == Type.DOUBLE) 2 else 1
-                                }
-                                add(VarInsnNode(Opcodes.ASTORE, opNum))
-                                // 2.构建 JointPoint 实体 JointPoint jointPoint = new JointPoint(this, args);
-                                val jointPointInternalName =
-                                    Type.getInternalName(JoinPoint::class.java)
-                                val jointPointConstructor = JoinPoint::class.java.getConstructor(
-                                    Any::class.java,
-                                    Array<Any?>::class.java,
-                                )
-                                add(TypeInsnNode(Opcodes.NEW, jointPointInternalName))
-                                add(InsnNode(Opcodes.DUP))
-                                add(VarInsnNode(Opcodes.ALOAD, 0))
-                                add(VarInsnNode(Opcodes.ALOAD, opNum))
-                                add(
-                                    MethodInsnNode(
-                                        Opcodes.INVOKESPECIAL,
-                                        jointPointInternalName,
-                                        "<init>",
-                                        Type.getType(jointPointConstructor).descriptor,
-                                        false
-                                    )
-                                )
-                                add(VarInsnNode(Opcodes.ASTORE, ++opNum))
-                            }
-                            // 3.将 Pointcut 和 JointPoint 连接 XXX.instance.xxxfun(jointPoint);
-                            add(
-                                FieldInsnNode(
-                                    Opcodes.GETSTATIC,
-                                    pointcut.aspectClassName,
-                                    "instance",
-                                    Type.getObjectType(pointcut.aspectClassName).descriptor
-                                )
-                            )
-                            if (aspectFunArgs.isNotEmpty()) {
-                                add(VarInsnNode(Opcodes.ALOAD, opNum))
-                            }
-                            add(
-                                MethodInsnNode(
-                                    Opcodes.INVOKEVIRTUAL,
-                                    pointcut.aspectClassName,
-                                    pointcut.aspectFunName,
-                                    pointcut.aspectFunDesc,
-                                    false
-                                )
-                            )
+                    // 局部变量索引
+                    var localVarIndex = 1
+                    // 连接点节点的尾部
+                    var joinPointInsnLast: AbstractInsnNode? = null
+                    if (aspectFunArgs.isNotEmpty()) {
+                        insnList.insert(firstLabel, InsnList().apply {
+                            // 1.将方法中的参数存到数组中 Object[] args = {arg1, arg2, arg3, ...};
+                            add(methodNode.argsInsnList { localVarIndex = it })
+                            add(VarInsnNode(Opcodes.ASTORE, ++localVarIndex))
+                            // 2.构建 JointPoint 实体 JointPoint jointPoint = new JointPoint(this, args);
+                            add(newObject(JoinPoint::class.java, linkedMapOf(
+                                Any::class.java to InsnList().apply { add(VarInsnNode(Opcodes.ALOAD, 0)) },
+                                Array<Any?>::class.java to InsnList().apply { add(VarInsnNode(Opcodes.ALOAD, localVarIndex)) },
+                            )))
+                            add(VarInsnNode(Opcodes.ASTORE, ++localVarIndex))
+                            joinPointInsnLast = last
+                        })
+                        // 将原始方法体中所有非(方法参数列表的本地变量索引)的索引增加插入的本地变量所占的索引大小
+                        orgInsn.forEach fixEach@{
+                            if (it !is VarInsnNode || it.`var` < localVarIndex - 1) return@fixEach
+                            if (!it.opcode.opcodeIsLoad() && !it.opcode.opcodeIsStore()) return@fixEach
+                            it.`var` += 2
                         }
-                    )
+                    }
+                    // 3.将 Pointcut 和 JointPoint 连接 XXX.instance.xxxfun(jointPoint);
+                    val insertCallAspectFuncInsn: (AbstractInsnNode) -> Unit = {
+                        insnList.insertBefore(it, InsnList().apply {
+                            add(FieldInsnNode(
+                                Opcodes.GETSTATIC,
+                                pointcut.aspectClassName,
+                                "instance",
+                                Type.getObjectType(pointcut.aspectClassName).descriptor
+                            ))
+                            if (aspectFunArgs.isNotEmpty()) add(VarInsnNode(Opcodes.ALOAD, localVarIndex))
+                            add(MethodInsnNode(
+                                Opcodes.INVOKEVIRTUAL,
+                                pointcut.aspectClassName,
+                                pointcut.aspectFunName,
+                                pointcut.aspectFunDesc,
+                                false
+                            ))
+                        })
+                    }
+                    if (pointcut.position == 0) {
+                        insertCallAspectFuncInsn(joinPointInsnLast?.next ?: firstLabel.next)
+                    } else if (pointcut.position == -1) {
+                        for (insnNode in insnList) {
+                            if (insnNode.opcode in Opcodes.IRETURN..Opcodes.RETURN) {
+                                insertCallAspectFuncInsn(insnNode)
+                            }
+                        }
+                    }
                     logger.info("插入 --> ${classNode.name}#${methodNode.name + methodNode.desc}")
                 }
         }
