@@ -13,10 +13,12 @@ import org.objectweb.asm.tree.ClassNode
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
+import kotlin.collections.HashSet
 
 /**
  *
@@ -24,7 +26,7 @@ import java.util.zip.ZipEntry
  * @author Ysj
  * Create time: 2021/3/5
  */
-class YAopTransform(private val project: Project) : Transform() {
+class BytecodeTransform(private val project: Project) : Transform() {
 
     companion object {
         const val PLUGIN_NAME = "BytecodeUtilPlugin"
@@ -74,34 +76,32 @@ class YAopTransform(private val project: Project) : Transform() {
             input.scopes,
             Format.JAR
         )
-        if (notNeedJarEntriesCache.contains(src.name)) {
+        if (src.name in notNeedJarEntriesCache) {
             FileUtils.copyFile(src, dest)
             return
         }
         JarFile(src).use { jf ->
             JarOutputStream(dest.outputStream()).use { jos ->
-                jf.entries().toList()
-                    .filter { true }
-                    .forEach {
-                        jf.getInputStream(it).use { ips ->
-                            val zipEntry = ZipEntry(it.name)
-                            if (it.name.endsWith(".class")) {
-                                //                    logger.quiet("process jar element --> ${element.name}")
-                                val cr = ClassReader(ips)
-                                val cw = ClassWriter(cr, ClassWriter.COMPUTE_FRAMES)
-                                val cv = ClassNode()
-                                cr.accept(cv, 0)
-                                modifierManager.modify(cv)
-                                cv.accept(cw)
-                                jos.putNextEntry(zipEntry)
-                                jos.write(cw.toByteArray())
-                            } else {
-                                jos.putNextEntry(zipEntry)
-                                jos.write(ips.readBytes())
-                            }
-                            jos.closeEntry()
+                jf.entries().forEach {
+                    jf.getInputStream(this).use { ips ->
+                        val zipEntry = ZipEntry(name)
+                        if (notNeedJarEntries()) {
+                            jos.putNextEntry(zipEntry)
+                            jos.write(ips.readBytes())
+                        } else {
+//                            logger.quiet("process jar element --> ${it.name}")
+                            val cr = ClassReader(ips)
+                            val cw = ClassWriter(cr, 0)
+                            val cv = ClassNode()
+                            cr.accept(cv, 0)
+                            modifierManager.modify(cv)
+                            cv.accept(cw)
+                            jos.putNextEntry(zipEntry)
+                            jos.write(cw.toByteArray())
                         }
+                        jos.closeEntry()
                     }
+                }
             }
         }
     }
@@ -115,85 +115,78 @@ class YAopTransform(private val project: Project) : Transform() {
             Format.DIRECTORY
         )
         FileUtils.copyDirectory(src, dest)
-        dest.walk()
-            .filter { isNeedFile(it) }
-            .forEach {
+        dest.walk().forEach {
+            if (!it.isNeedFile()) return@forEach
 //                logger.quiet("process file --> ${it.name}")
-                it.inputStream().use { fis ->
-                    val cr = ClassReader(fis)
-                    val cw = ClassWriter(cr, ClassWriter.COMPUTE_FRAMES)
-                    val cv = ClassNode()
-                    cr.accept(cv, 0)
-                    modifierManager.modify(cv)
-                    cv.accept(cw)
-                    FileOutputStream(it).use { fos ->
-                        fos.write(cw.toByteArray())
-                    }
+            it.inputStream().use { fis ->
+                val cr = ClassReader(fis)
+                val cw = ClassWriter(cr, 0)
+                val cv = ClassNode()
+                cr.accept(cv, 0)
+                modifierManager.modify(cv)
+                cv.accept(cw)
+                FileOutputStream(it).use { fos ->
+                    fos.write(cw.toByteArray())
                 }
             }
+        }
     }
 
     private fun prePrecess(jis: Collection<JarInput>, dis: Collection<DirectoryInput>) {
         jis.forEach { input ->
             JarFile(input.file).use { jf ->
-                val entries = jf.entries().toList()
                 /*
                     由于该 transform 可能后于其他 transform
                     此时该 transform 的输入源会变为其他 transform 的输出
                     此时输入源的名称会发生变化，因此不能简单通过 input.file.name 过滤
                  */
-                if (notNeedJarEntries(entries)) {
-                    notNeedJarEntriesCache.add(input.file.name)
-                    return@forEach
-                }
-                entries.toList()
-                    .filter { it.name.endsWith(".class") }
-                    .forEach {
-                        logger.verbose("need process in jar --> ${it.name}")
-                        preVisitor(jf.getInputStream(it))
+                val entries = jf.entries()
+                entries.forEach entry@{
+                    if (notNeedJarEntries()) {
+                        if (!entries.hasMoreElements()) notNeedJarEntriesCache.add(input.file.name)
+                        return@entry
                     }
+                    logger.verbose("need process in jar --> ${name}")
+                    jf.getInputStream(this).preVisitor()
+                }
             }
         }
         dis.forEach { input ->
-            input.file.walk()
-                .filter { isNeedFile(it) }
-                .forEach test@{
-                    logger.verbose("need process in dir --> ${it.name}")
-                    preVisitor(it.inputStream())
-                }
+            input.file.walk().forEach test@{
+                if (!it.isNeedFile()) return@test
+                logger.verbose("need process in dir --> ${it.name}")
+                it.inputStream().preVisitor()
+            }
         }
     }
 
-    private fun preVisitor(inputStream: InputStream) {
-        inputStream.use {
-            val cr = ClassReader(it)
-            val cv = ClassNode()
-            cr.accept(cv, 0)
-            modifierManager.scan(cv)
-        }
+    private fun InputStream.preVisitor() = use {
+        val cr = ClassReader(it)
+        val cv = ClassNode()
+        cr.accept(cv, 0)
+        modifierManager.scan(cv)
     }
 
-    private fun notNeedJarEntries(entries: List<JarEntry>): Boolean {
-        entries.forEach {
-            if (it.name.startsWith("kotlin/")
-                || it.name.startsWith("kotlinx/")
-                || it.name.startsWith("javax/")
-                || it.name.startsWith("org/intellij/")
-                || it.name.startsWith("org/jetbrains/")
-                || it.name.startsWith("org/junit/")
-                || it.name.startsWith("org/hamcrest/")
-                || it.name.startsWith("com/squareup/")
-                || it.name.startsWith("androidx/")
-//                || it.name.startsWith("android/")
-                || it.name.startsWith("com/google/android/")
-                || it.name.startsWith("com/ysj/lib/aop/annotation/")
-            ) return true
-        }
-        return false
-    }
+    private fun JarEntry.notNeedJarEntries(): Boolean =
+        name.endsWith(".class").not()
+                || name.startsWith("kotlin/")
+                || name.startsWith("kotlinx/")
+                || name.startsWith("javax/")
+                || name.startsWith("org/intellij/")
+                || name.startsWith("org/jetbrains/")
+                || name.startsWith("org/junit/")
+                || name.startsWith("org/hamcrest/")
+                || name.startsWith("com/squareup/")
+                || name.startsWith("androidx/")
+//                || name.startsWith("android/")
+                || name.startsWith("com/google/android/")
+                || name.startsWith("com/ysj/lib/aop/annotation/")
 
-    private fun isNeedFile(file: File): Boolean =
-        file.isFile && file.extension == "class" && file.name !in listOf("BuildConfig.class")
+    private fun File.isNeedFile(): Boolean = isFile && extension == "class"
+
+    private inline fun <T> Enumeration<T>.forEach(block: T.() -> Unit) {
+        while (hasMoreElements()) nextElement().block()
+    }
 
     private inline fun doTransform(
         transformInvocation: TransformInvocation,

@@ -1,7 +1,7 @@
 package com.ysj.lib.byteutil.plugin
 
 import com.android.build.gradle.AppExtension
-import com.ysj.lib.byteutil.plugin.core.YAopTransform
+import com.ysj.lib.byteutil.plugin.core.BytecodeTransform
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -14,7 +14,7 @@ class Main : Plugin<Project> {
 
     override fun apply(project: Project) {
         project.extensions.getByType(AppExtension::class.java).also { appExt ->
-            appExt.registerTransform(YAopTransform(project))
+            appExt.registerTransform(BytecodeTransform(project))
         }
     }
 }
