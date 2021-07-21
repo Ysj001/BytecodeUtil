@@ -38,7 +38,7 @@ inline fun MethodNode.argsInsnList(indexBlock: (Int) -> Unit) = InsnList().apply
     // 当前方法的参数列表的类型列表
     val argumentTypes = Type.getArgumentTypes(desc)
     // 局部变量索引
-    var localVarIndex = 1
+    var localVarIndex = if (isStatic) 0 else 1
     add(IntInsnNode(Opcodes.BIPUSH, argumentTypes.size))
     add(TypeInsnNode(
         Opcodes.ANEWARRAY,
