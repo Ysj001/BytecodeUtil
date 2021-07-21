@@ -90,6 +90,10 @@ fun newObject(obj: Class<*>, params: Map<Class<*>, InsnList>) = InsnList().apply
     ))
 }
 
+/** 是静态方法则为 true */
+val MethodNode.isStatic: Boolean
+    get() = access and Opcodes.ACC_STATIC != 0
+
 /**
  * 获取 load 系列的 opcode
  */
