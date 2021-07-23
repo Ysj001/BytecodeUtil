@@ -36,9 +36,18 @@ annotation class Pointcut(
     val funDesc: String,
     /**
      * 切入点的具体执行位置
-     * - -1 表示插入方法末尾
-     * - 0 表示插入方法开头
-     * - 其它 表示插入到方法中任意位置
+     * - see: [POSITION_START]
+     * - see: [POSITION_RETURN]
+     * - see: [POSITION_CALL]
      */
     val position: Int,
 )
+
+/** 插入方法开头 */
+const val POSITION_START = 0
+
+/** 插入方法 return 前 */
+const val POSITION_RETURN = -1
+
+/** 插入方法调用点 */
+const val POSITION_CALL = 1
