@@ -222,54 +222,54 @@ class AspectModifier(
     ) {
         if (position != POSITION_RETURN && position != POSITION_START) return
         val insnList = methodNode.instructions
-        val orgInsn = insnList.toArray()
-        val firstLabel = orgInsn.find { it is LabelNode } ?: return
+        val firstLabel = if (methodNode.name != "<init>") insnList.first else {
+            var result: AbstractInsnNode? = null
+            insnList.iterator().forEach { if (it.opcode == Opcodes.INVOKESPECIAL) result = it.next }
+            result
+        } ?: return
         // 切面方法的参数
-        val aspectFunArgs = Type.getArgumentTypes(aspectFunDesc)
-        var jointPoint = initJointPoint
-        if (aspectFunArgs.isNotEmpty()) {
-            jointPoint = jointPoint ?: jointPoint(methodNode, orgInsn).apply {
+        val hasArg = Type.getArgumentTypes(aspectFunDesc).isNotEmpty()
+        val jointPoint = if (!hasArg) null else {
+            initJointPoint ?: jointPoint(methodNode).apply {
                 insnList.insertBefore(firstLabel, nodes)
             }
         }
         // 将 Pointcut 和 JointPoint 连接 XXX.instance.xxxfun(jointPoint);
-        val callAspectFun = InsnList().apply {
-            add(FieldInsnNode(
-                Opcodes.GETSTATIC,
-                aspectClassName,
-                "instance",
-                Type.getObjectType(aspectClassName).descriptor
-            ))
-            if (aspectFunArgs.isNotEmpty() && jointPoint != null) {
-                add(VarInsnNode(Opcodes.ALOAD, jointPoint.localVarIndex))
-            }
-            add(MethodInsnNode(
-                Opcodes.INVOKEVIRTUAL,
-                aspectClassName,
-                aspectFunName,
-                aspectFunDesc,
-                false
-            ))
+        val callAspectFun: (AbstractInsnNode) -> Unit = {
+            insnList.insertBefore(it, InsnList().apply {
+                add(FieldInsnNode(
+                    Opcodes.GETSTATIC,
+                    aspectClassName,
+                    "instance",
+                    Type.getObjectType(aspectClassName).descriptor
+                ))
+                if (jointPoint != null) add(VarInsnNode(Opcodes.ALOAD, jointPoint.localVarIndex))
+                add(MethodInsnNode(
+                    Opcodes.INVOKEVIRTUAL,
+                    aspectClassName,
+                    aspectFunName,
+                    aspectFunDesc,
+                    false
+                ))
+            })
         }
         when (position) {
-            POSITION_START -> insnList.insertBefore(firstLabel, callAspectFun)
+            POSITION_START -> callAspectFun(firstLabel)
             POSITION_RETURN -> for (insnNode in insnList) {
                 if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
-                insnList.insertBefore(insnNode, callAspectFun)
+                callAspectFun(insnNode)
             }
         }
         logger.info("Method Inner 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
     }
 
-    private fun jointPoint(
-        methodNode: MethodNode,
-        orgInsn: Array<out AbstractInsnNode> = methodNode.instructions.toArray(),
-    ): JointPointInsn {
-        var localVarIndex = if (methodNode.isStatic) 0 else 1
+    private fun jointPoint(methodNode: MethodNode): JointPointInsn {
+        var localVarIndex: Int
         val insn = InsnList().apply {
             // 将方法中的参数存到数组中 Object[] args = {arg1, arg2, arg3, ...};
-            add(methodNode.argsInsnList { localVarIndex = it })
-            add(VarInsnNode(Opcodes.ASTORE, ++localVarIndex))
+            val argsInsnList = methodNode.argsInsnList()
+            localVarIndex = (argsInsnList.last as VarInsnNode).`var`
+            add(argsInsnList)
             // 构建 JointPoint 实体 JointPoint jointPoint = new JointPoint(this, args);
             add(newObject(
                 JoinPoint::class.java, linkedMapOf(
@@ -284,9 +284,8 @@ class AspectModifier(
             add(VarInsnNode(Opcodes.ASTORE, ++localVarIndex))
         }
         // 将原始方法体中所有非(方法参数列表的本地变量索引)的索引增加插入的本地变量(jointPoint)所占的索引大小
-        orgInsn.forEach fixEach@{
+        methodNode.instructions.iterator().forEach fixEach@{
             if (it !is VarInsnNode || it.`var` < localVarIndex - 1) return@fixEach
-            if (!it.opcode.opcodeIsLoad() && !it.opcode.opcodeIsStore()) return@fixEach
             it.`var` += 2
         }
         return JointPointInsn(localVarIndex, insn)

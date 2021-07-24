@@ -31,10 +31,8 @@ fun AnnotationNode.params() = HashMap<String, Any>().also {
  *       Object[] args = new Object[]{a1, a2, a3, a4, };
  *   }
  * ```
- *
- * @param indexBlock 方法的参数列表最后一个变量的索引
  */
-inline fun MethodNode.argsInsnList(indexBlock: (Int) -> Unit) = InsnList().apply {
+fun MethodNode.argsInsnList() = InsnList().apply {
     // 当前方法的参数列表的类型列表
     val argumentTypes = Type.getArgumentTypes(desc)
     // 局部变量索引
@@ -65,7 +63,7 @@ inline fun MethodNode.argsInsnList(indexBlock: (Int) -> Unit) = InsnList().apply
         // 计算当前参数的索引
         localVarIndex += t.size
     }
-    indexBlock(localVarIndex - 1)
+    add(VarInsnNode(Opcodes.ASTORE, localVarIndex))
 }
 
 /**
