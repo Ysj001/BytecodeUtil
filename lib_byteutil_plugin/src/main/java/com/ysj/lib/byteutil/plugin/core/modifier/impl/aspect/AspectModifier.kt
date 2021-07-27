@@ -284,9 +284,10 @@ class AspectModifier(
             add(VarInsnNode(Opcodes.ASTORE, ++localVarIndex))
         }
         // 将原始方法体中所有非(方法参数列表的本地变量索引)的索引增加插入的本地变量(jointPoint)所占的索引大小
+        val i = localVarIndex - 1
         methodNode.instructions.iterator().forEach fixEach@{
-            if (it !is VarInsnNode || it.`var` < localVarIndex - 1) return@fixEach
-            it.`var` += 2
+            if (it is IincInsnNode && it.`var` >= i) it.`var` += 2
+            if (it is VarInsnNode && it.`var` >= i) it.`var` += 2
         }
         return JointPointInsn(localVarIndex, insn)
     }
