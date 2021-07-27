@@ -184,7 +184,18 @@ class AspectModifier(
                         && Pattern.matches(it.funName, node.name)
                         && Pattern.matches(it.funDesc, node.desc)
             } ?: return@node
-            val firstLabel = insnNodes.find { it is LabelNode } ?: return@node
+            val firstLabel = if (methodNode.name != "<init>") insnList.first else {
+                var result: AbstractInsnNode? = null
+                val iterator = insnList.iterator()
+                while (iterator.hasNext()) {
+                    val next = iterator.next()
+                    if (next.opcode == Opcodes.INVOKESPECIAL) {
+                        result = next.next
+                        break
+                    }
+                }
+                result
+            } ?: return@node
             // 切面方法的参数
             val aspectFunArgs = Type.getArgumentTypes(pointcutBean.aspectFunDesc)
             if (aspectFunArgs.isNotEmpty()) {
@@ -224,7 +235,14 @@ class AspectModifier(
         val insnList = methodNode.instructions
         val firstLabel = if (methodNode.name != "<init>") insnList.first else {
             var result: AbstractInsnNode? = null
-            insnList.iterator().forEach { if (it.opcode == Opcodes.INVOKESPECIAL) result = it.next }
+            val iterator = insnList.iterator()
+            while (iterator.hasNext()) {
+                val next = iterator.next()
+                if (next.opcode == Opcodes.INVOKESPECIAL) {
+                    result = next.next
+                    break
+                }
+            }
             result
         } ?: return
         // 切面方法的参数
