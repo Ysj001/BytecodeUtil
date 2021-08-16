@@ -3,6 +3,7 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.processor
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.argsInsnList
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.AspectModifier
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.isStatic
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.newObject
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -39,7 +40,9 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
         add(newObject(
             JoinPoint::class.java,
             linkedMapOf(
-                Any::class.java to InsnList().apply { add(VarInsnNode(Opcodes.ALOAD, 0)) },
+                Any::class.java to InsnList().apply {
+                    add(if (methodNode.isStatic) InsnNode(Opcodes.ACONST_NULL) else VarInsnNode(Opcodes.ALOAD, 0))
+                },
                 Array<Any?>::class.java to methodNode.argsInsnList().apply { remove(last) },
             )
         ))

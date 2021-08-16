@@ -10,8 +10,8 @@ import java.util.concurrent.ConcurrentHashMap
  * Create time: 2021/3/8
  */
 class JoinPoint(
-    /** 切入点的 this 获取的对象 */
-    val target: Any,
+    /** 切入点的 this 获取的对象，若切入点在静态方法内，则为 null */
+    val target: Any?,
     /** 切入点方法的参数 */
     val args: Array<Any?>,
 ) : Serializable {
