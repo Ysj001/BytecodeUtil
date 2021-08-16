@@ -4,13 +4,14 @@ import com.android.build.api.transform.Transform
 import com.ysj.lib.byteutil.api.aspect.*
 import com.ysj.lib.byteutil.plugin.core.logger.YLogger
 import com.ysj.lib.byteutil.plugin.core.modifier.*
+import com.ysj.lib.byteutil.plugin.core.modifier.impl.aspect.processor.MethodInnerProcessor
+import com.ysj.lib.byteutil.plugin.core.modifier.impl.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 import java.util.*
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
-import kotlin.collections.HashSet
 
 /**
  * 用于处理 [Aspect] , [Pointcut] 来实现切面的修改器
@@ -25,15 +26,9 @@ class AspectModifier(
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val targetCallStart by lazy { HashSet<PointcutBean>() }
+    private val methodInnerProcessor by lazy { MethodInnerProcessor(this) }
 
-    private val targetClass by lazy { HashSet<PointcutBean>() }
-
-    private val targetSuperClass by lazy { HashSet<PointcutBean>() }
-
-    private val targetInterface by lazy { HashSet<PointcutBean>() }
-
-    private val targetAnnotation by lazy { HashSet<PointcutBean>() }
+    private val methodProxyProcessor by lazy { MethodProxyProcessor(this) }
 
     override fun scan(classNode: ClassNode) {
         // 过滤所有没有 Aspect 注解的类
@@ -51,10 +46,10 @@ class AspectModifier(
             val target = orgTarget.substringAfter(":")
             val targetType = orgTarget.substringBefore(":")
             val collection = when (targetType) {
-                "class" -> targetClass
-                "superClass" -> targetSuperClass
-                "interface" -> targetInterface
-                "annotation" -> targetAnnotation
+                "class" -> methodInnerProcessor.targetClass
+                "superClass" -> methodInnerProcessor.targetSuperClass
+                "interface" -> methodInnerProcessor.targetInterface
+                "annotation" -> methodInnerProcessor.targetAnnotation
                 else -> throw RuntimeException("${Pointcut::class.java.simpleName} 中 target 前缀不合法：${orgTarget}")
             }
             val pointcutBean = PointcutBean(
@@ -100,7 +95,7 @@ class AspectModifier(
             }
             when (pointcutBean.position) {
                 POSITION_START, POSITION_RETURN -> collection.add(pointcutBean)
-                POSITION_CALL -> targetCallStart.add(pointcutBean)
+                POSITION_CALL -> methodProxyProcessor.targetCallStart.add(pointcutBean)
             }
         }
     }
@@ -159,183 +154,14 @@ class AspectModifier(
      * 处理 [Pointcut] 收集的信息
      */
     private fun handlePointcut(classNode: ClassNode) {
-        val targetClassPointcuts = findPointcuts(classNode)
-        classNode.methods.forEach { methodNode ->
-            val jointPointInsn = handleMethodCall(classNode, methodNode)
+        val targetClassPointcuts = methodInnerProcessor.findPointcuts(classNode)
+        ArrayList(classNode.methods).forEach { methodNode ->
+            methodProxyProcessor.process(classNode, methodNode)
             targetClassPointcuts.forEach targetClass@{ pointcut ->
                 if (!Pattern.matches(pointcut.funName, methodNode.name)) return@targetClass
                 if (!Pattern.matches(pointcut.funDesc, methodNode.desc)) return@targetClass
-                pointcut.handleMethodInner(classNode, methodNode, jointPointInsn)
+                methodInnerProcessor.process(pointcut, classNode, methodNode)
             }
         }
     }
-
-    private fun handleMethodCall(
-        classNode: ClassNode,
-        methodNode: MethodNode,
-    ): JointPointInsn? {
-        val insnList = methodNode.instructions
-        val insnNodes = insnList.toArray()
-        var jointPoint: JointPointInsn? = null
-        insnNodes.forEach node@{ node ->
-            if (node !is MethodInsnNode) return@node
-            val pointcutBean = targetCallStart.find {
-                Pattern.matches(it.target, node.owner)
-                        && Pattern.matches(it.funName, node.name)
-                        && Pattern.matches(it.funDesc, node.desc)
-            } ?: return@node
-            val firstLabel = if (methodNode.name != "<init>") insnList.first else {
-                var result: AbstractInsnNode? = null
-                val iterator = insnList.iterator()
-                while (iterator.hasNext()) {
-                    val next = iterator.next()
-                    if (next.opcode == Opcodes.INVOKESPECIAL) {
-                        result = next.next
-                        break
-                    }
-                }
-                result
-            } ?: return@node
-            // 切面方法的参数
-            val aspectFunArgs = Type.getArgumentTypes(pointcutBean.aspectFunDesc)
-            if (aspectFunArgs.isNotEmpty()) {
-                jointPoint = jointPoint ?: jointPoint(methodNode, insnNodes).apply {
-                    insnList.insertBefore(firstLabel, nodes)
-                }
-            }
-            insnList.insertBefore(node, InsnList().apply {
-                add(FieldInsnNode(
-                    Opcodes.GETSTATIC,
-                    pointcutBean.aspectClassName,
-                    "instance",
-                    Type.getObjectType(pointcutBean.aspectClassName).descriptor
-                ))
-                if (aspectFunArgs.isNotEmpty() && jointPoint != null) {
-                    add(VarInsnNode(Opcodes.ALOAD, jointPoint!!.localVarIndex))
-                }
-                add(MethodInsnNode(
-                    Opcodes.INVOKEVIRTUAL,
-                    pointcutBean.aspectClassName,
-                    pointcutBean.aspectFunName,
-                    pointcutBean.aspectFunDesc,
-                    false
-                ))
-            })
-            logger.info("Method Call 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}：${node.opcode} ${node.owner} ${node.name} ${node.desc}")
-        }
-        return jointPoint
-    }
-
-    private fun PointcutBean.handleMethodInner(
-        classNode: ClassNode,
-        methodNode: MethodNode,
-        initJointPoint: JointPointInsn?,
-    ) {
-        if (position != POSITION_RETURN && position != POSITION_START) return
-        val insnList = methodNode.instructions
-        val firstLabel = if (methodNode.name != "<init>") insnList.first else {
-            var result: AbstractInsnNode? = null
-            val iterator = insnList.iterator()
-            while (iterator.hasNext()) {
-                val next = iterator.next()
-                if (next.opcode == Opcodes.INVOKESPECIAL) {
-                    result = next.next
-                    break
-                }
-            }
-            result
-        } ?: return
-        // 切面方法的参数
-        val hasArg = Type.getArgumentTypes(aspectFunDesc).isNotEmpty()
-        val jointPoint = if (!hasArg) null else {
-            initJointPoint ?: jointPoint(methodNode).apply {
-                insnList.insertBefore(firstLabel, nodes)
-            }
-        }
-        // 将 Pointcut 和 JointPoint 连接 XXX.instance.xxxfun(jointPoint);
-        val callAspectFun: (AbstractInsnNode) -> Unit = {
-            insnList.insertBefore(it, InsnList().apply {
-                add(FieldInsnNode(
-                    Opcodes.GETSTATIC,
-                    aspectClassName,
-                    "instance",
-                    Type.getObjectType(aspectClassName).descriptor
-                ))
-                if (jointPoint != null) add(VarInsnNode(Opcodes.ALOAD, jointPoint.localVarIndex))
-                add(MethodInsnNode(
-                    Opcodes.INVOKEVIRTUAL,
-                    aspectClassName,
-                    aspectFunName,
-                    aspectFunDesc,
-                    false
-                ))
-            })
-        }
-        when (position) {
-            POSITION_START -> callAspectFun(firstLabel)
-            POSITION_RETURN -> for (insnNode in insnList) {
-                if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
-                callAspectFun(insnNode)
-            }
-        }
-        logger.info("Method Inner 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
-    }
-
-    private fun jointPoint(methodNode: MethodNode): JointPointInsn {
-        var localVarIndex: Int
-        val insn = InsnList().apply {
-            // 将方法中的参数存到数组中 Object[] args = {arg1, arg2, arg3, ...};
-            val argsInsnList = methodNode.argsInsnList()
-            localVarIndex = (argsInsnList.last as VarInsnNode).`var`
-            add(argsInsnList)
-            // 构建 JointPoint 实体 JointPoint jointPoint = new JointPoint(this, args);
-            add(newObject(
-                JoinPoint::class.java, linkedMapOf(
-                    Any::class.java to InsnList().apply {
-                        add(VarInsnNode(Opcodes.ALOAD, 0))
-                    },
-                    Array<Any?>::class.java to InsnList().apply {
-                        add(VarInsnNode(Opcodes.ALOAD, localVarIndex))
-                    },
-                )
-            ))
-            add(VarInsnNode(Opcodes.ASTORE, ++localVarIndex))
-        }
-        // 将原始方法体中所有非(方法参数列表的本地变量索引)的索引增加插入的本地变量(jointPoint)所占的索引大小
-        val i = localVarIndex - 1
-        methodNode.instructions.iterator().forEach fixEach@{
-            if (it is IincInsnNode && it.`var` >= i) it.`var` += 2
-            if (it is VarInsnNode && it.`var` >= i) it.`var` += 2
-        }
-        return JointPointInsn(localVarIndex, insn)
-    }
-
-    /**
-     * 查找类中所有的切入点
-     */
-    private fun findPointcuts(classNode: ClassNode): ArrayList<PointcutBean> {
-        val pointcuts = ArrayList<PointcutBean>()
-        // 查找类中的
-        targetClass.forEach { if (Pattern.matches(it.target, classNode.name)) pointcuts.add(it) }
-        // 查找父类中的
-        for (it in targetSuperClass) {
-            fun findSuperClass(superName: String?) {
-                superName ?: return
-                if (Pattern.matches(it.target, superName)) pointcuts.add(it)
-                else findSuperClass(allClassNode[superName]?.superName)
-            }
-            findSuperClass(classNode.superName)
-        }
-        // 查找接口中的
-
-        // 查找注解中的
-
-        return pointcuts
-    }
-
-    class JointPointInsn(
-        /** jointPoint 变量索引 */
-        val localVarIndex: Int,
-        val nodes: InsnList,
-    )
 }
