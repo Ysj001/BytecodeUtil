@@ -1,7 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    id 'byteutil-plugin'
+    id 'bytecodeutil-plugin'
 }
 
 android {
@@ -65,5 +65,5 @@ dependencies {
         }
     }
 
-    implementation "$LIB_GROUP_ID:byteutil-api:$LIB_VERSION"
+    implementation "$LIB_GROUP_ID:bytecodeutil-api:$LIB_VERSION"
 }

@@ -12,12 +12,11 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/lib_byteutil_api" />
-            <option value="$PROJECT_DIR$/lib_byteutil_plugin" />
+            <option value="$PROJECT_DIR$/lib_bytecodeutil_api" />
+            <option value="$PROJECT_DIR$/lib_bytecodeutil_plugin" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />
-        <option name="useQualifiedModuleNames" value="true" />
       </GradleProjectSettings>
     </option>
   </component>

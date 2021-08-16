@@ -1,4 +1,4 @@
-include ':lib_byteutil_api'
-include ':lib_byteutil_plugin'
+include ':lib_bytecodeutil_api'
+include ':lib_bytecodeutil_plugin'
 include ':app'
-rootProject.name = "ByteUtil"
+rootProject.name = "BytecodeUtil"
