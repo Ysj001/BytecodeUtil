@@ -1,6 +1,7 @@
 package com.ysj.lib.byteutil.api.aspect
 
 import java.io.Serializable
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 方法连接点
@@ -13,4 +14,16 @@ class JoinPoint(
     val target: Any,
     /** 切入点方法的参数 */
     val args: Array<Any?>,
-) : Serializable
+) : Serializable {
+    companion object {
+        private val STORE = ConcurrentHashMap<String, JoinPoint>()
+
+        @JvmStatic
+        fun put(key: String, value: JoinPoint) {
+            STORE[key] = value
+        }
+
+        @JvmStatic
+        fun get(key: String) = STORE[key]
+    }
+}
