@@ -139,8 +139,10 @@ fun cast(from: Type, to: Type): InsnList {
 }
 
 /** 是静态方法则为 true */
-val MethodNode.isStatic: Boolean
-    get() = access and Opcodes.ACC_STATIC != 0
+val MethodInsnNode.isStatic: Boolean get() = opcode == Opcodes.INVOKESTATIC
+
+/** 是静态方法则为 true */
+val MethodNode.isStatic: Boolean get() = access and Opcodes.ACC_STATIC != 0
 
 /**
  * 获取 load 系列的 opcode
