@@ -157,13 +157,3 @@ fun Type.opcodeLoad() = when (sort) {
     Type.DOUBLE -> Opcodes.DLOAD
     else -> Opcodes.ILOAD
 }
-
-/**
- * 若是 load 系列的 opcode 则返回 true
- */
-fun Int.opcodeIsLoad() = this in Opcodes.ILOAD..Opcodes.SALOAD
-
-/**
- * 若是 store 相关的 opcode 则返回 true
- */
-fun Int.opcodeIsStore() = this in Opcodes.ISTORE..Opcodes.SASTORE
