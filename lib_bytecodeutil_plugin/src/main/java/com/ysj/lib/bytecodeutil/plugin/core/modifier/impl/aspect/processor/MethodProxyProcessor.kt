@@ -29,6 +29,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     val targetCallStart by lazy { HashSet<PointcutBean>() }
 
+    val classType = Type.getType(Class::class.java)
+
     val callingPointType = Type.getType(CallingPoint::class.java)
 
     fun process(classNode: ClassNode, methodNode: MethodNode) {
@@ -82,7 +84,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         val proxyName = calling.proxyName()
         val find = methods.find { it.access == Opcodes.ACC_STATIC && name == proxyName }
         if (find != null) return find
-        val callerDesc = if (calling.isStatic) Type.getDescriptor(Class::class.java) else Type.getObjectType(calling.owner).descriptor
+        val callerDesc = if (calling.isStatic) "" else Type.getObjectType(calling.owner).descriptor
         val args = Type.getArgumentTypes(calling.desc)
         val argsDesc = args.map { it.descriptor }.toTypedArray().contentToString().run {
             substring(1 until lastIndex).replace(", ", "")
@@ -105,11 +107,20 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                 Type.getObjectType(pointcut.aspectClassName).descriptor
             ))
             // caller, ...args 的下一个参数的索引
-            val argsNextIndex = args.size + 1
+            val argsNextIndex = args.size + if (calling.isStatic) 0 else 1
             // JoinPoint
             if (hasJoinPoint) add(VarInsnNode(Opcodes.ALOAD, argsNextIndex))
             // caller
-            add(VarInsnNode(Opcodes.ALOAD, 0))
+            if (!calling.isStatic) add(VarInsnNode(Opcodes.ALOAD, 0)) else {
+                add(LdcInsnNode(calling.owner.replace("/", ".")))
+                add(MethodInsnNode(
+                    Opcodes.INVOKESTATIC,
+                    classType.internalName,
+                    "forName",
+                    "(Ljava/lang/String;)${classType.descriptor}",
+                    false
+                ))
+            }
             // isStatic
             add(InsnNode(if (calling.isStatic) Opcodes.ICONST_1 else Opcodes.ICONST_0))
             // funName
@@ -117,7 +128,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // new Class[]{...argTypes}
             add(args.argTypesArray())
             // new Object[]{...args}
-            add(args.argsArray(1))
+            add(args.argsArray(if (calling.isStatic) 0 else 1))
             add(MethodInsnNode(
                 Opcodes.INVOKESTATIC,
                 callingPointType.internalName,
