@@ -1,5 +1,6 @@
 package com.ysj.lib.byteutil.plugin.core.modifier.impl.aspect
 
+import org.objectweb.asm.Type
 import java.io.Serializable
 
 /**
@@ -25,6 +26,9 @@ class PointcutBean(
     /** 切入方法的执行位置 */
     val position: Int,
 ) : Serializable {
+
+    /** 切面方法的参数 */
+    val aspectFunArgs: Array<Type> = Type.getArgumentTypes(aspectFunDesc)
 
     override fun toString(): String {
         return """
