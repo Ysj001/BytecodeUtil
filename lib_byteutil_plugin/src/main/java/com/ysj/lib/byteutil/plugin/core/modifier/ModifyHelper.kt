@@ -88,6 +88,56 @@ fun newObject(obj: Class<*>, params: Map<Class<*>, InsnList>) = InsnList().apply
     ))
 }
 
+/**
+ * 类型强制转换
+ */
+fun cast(from: Type, to: Type): InsnList {
+    val insnList = InsnList()
+    if (from == to) return insnList
+    if (from.sort < Type.BOOLEAN
+        || from.sort > Type.DOUBLE
+        || to.sort < Type.BOOLEAN
+        || to.sort > Type.DOUBLE
+    ) {
+        return insnList
+    }
+    when {
+        from === Type.DOUBLE_TYPE -> when {
+            to === Type.FLOAT_TYPE -> insnList.add(InsnNode(Opcodes.D2F))
+            to === Type.LONG_TYPE -> insnList.add(InsnNode(Opcodes.D2L))
+            else -> {
+                insnList.add(InsnNode(Opcodes.D2I))
+                insnList.add(cast(Type.INT_TYPE, to))
+            }
+        }
+        from === Type.FLOAT_TYPE -> when {
+            to === Type.DOUBLE_TYPE -> insnList.add(InsnNode(Opcodes.F2D))
+            to === Type.LONG_TYPE -> insnList.add(InsnNode(Opcodes.F2L))
+            else -> {
+                insnList.add(InsnNode(Opcodes.F2I))
+                insnList.add(cast(Type.INT_TYPE, to))
+            }
+        }
+        from === Type.LONG_TYPE -> when {
+            to === Type.DOUBLE_TYPE -> insnList.add(InsnNode(Opcodes.L2D))
+            to === Type.FLOAT_TYPE -> insnList.add(InsnNode(Opcodes.L2F))
+            else -> {
+                insnList.add(InsnNode(Opcodes.L2I))
+                insnList.add(cast(Type.INT_TYPE, to))
+            }
+        }
+        else -> when {
+            to === Type.BYTE_TYPE -> insnList.add(InsnNode(Opcodes.I2B))
+            to === Type.CHAR_TYPE -> insnList.add(InsnNode(Opcodes.I2C))
+            to === Type.DOUBLE_TYPE -> insnList.add(InsnNode(Opcodes.I2D))
+            to === Type.FLOAT_TYPE -> insnList.add(InsnNode(Opcodes.I2F))
+            to === Type.LONG_TYPE -> insnList.add(InsnNode(Opcodes.I2L))
+            to === Type.SHORT_TYPE -> insnList.add(InsnNode(Opcodes.I2S))
+        }
+    }
+    return insnList
+}
+
 /** 是静态方法则为 true */
 val MethodNode.isStatic: Boolean
     get() = access and Opcodes.ACC_STATIC != 0
