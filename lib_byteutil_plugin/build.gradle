@@ -18,7 +18,7 @@ repositories {
 dependencies {
     implementation gradleApi()
     implementation localGroovy()
-    compileOnly "com.android.tools.build:gradle:4.0.2"
+    compileOnly "com.android.tools.build:gradle:4.1.3"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation "$LIB_GROUP_ID:byteutil-api:$LIB_VERSION"
 }
