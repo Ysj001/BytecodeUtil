@@ -1,0 +1,105 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "io.github.ysj001",
+    "module": "bytecodeutil-api",
+    "version": "1.0.0-SNAPSHOT",
+    "attributes": {
+      "org.gradle.status": "integration"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "6.5",
+      "buildId": "q2llzln6arddpfmt3hkk2mnnom"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.localToProject": "public",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "bytecodeutil-api-1.0.0-SNAPSHOT.jar",
+          "url": "bytecodeutil-api-1.0.0-SNAPSHOT.jar",
+          "size": 8687,
+          "sha512": "178eed9df156a60628a81913b4fb2839ad566557883c90854f63e9537d7b3ec2eb25a2a668ed6af42f17aaa198148b17693c80951f7fe7e140930dd284f191bc",
+          "sha256": "853ced988b213da50d4132c84d8889dd50a55aba78d3c00466c7244e3cf3638f",
+          "sha1": "3ab1ad4df70b00254b2876840927a28aaf753321",
+          "md5": "dd586f2b98861c7a01c8ad32533f66b3"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.localToProject": "public",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "bytecodeutil-api-1.0.0-SNAPSHOT.jar",
+          "url": "bytecodeutil-api-1.0.0-SNAPSHOT.jar",
+          "size": 8687,
+          "sha512": "178eed9df156a60628a81913b4fb2839ad566557883c90854f63e9537d7b3ec2eb25a2a668ed6af42f17aaa198148b17693c80951f7fe7e140930dd284f191bc",
+          "sha256": "853ced988b213da50d4132c84d8889dd50a55aba78d3c00466c7244e3cf3638f",
+          "sha1": "3ab1ad4df70b00254b2876840927a28aaf753321",
+          "md5": "dd586f2b98861c7a01c8ad32533f66b3"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "bytecodeutil-api-1.0.0-SNAPSHOT-javadoc.jar",
+          "url": "bytecodeutil-api-1.0.0-SNAPSHOT-javadoc.jar",
+          "size": 261,
+          "sha512": "38acb1d66ed77823586aef1afeca764bb178e340f070b822cfb0352108ed03420a040dca6bcab28dbca6c42cf4766208a1866b0490fed2e35de4521c2ccbd6c4",
+          "sha256": "2435fab84bb9c56f1ad4fd31edab12d6be1b561a034a626fe2f083330bfc5d28",
+          "sha1": "2fd44d9117eb74e7b54414be7d5123d0984cd9ed",
+          "md5": "8fd6451dc65f0798b21f145b76c25345"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "bytecodeutil-api-1.0.0-SNAPSHOT-sources.jar",
+          "url": "bytecodeutil-api-1.0.0-SNAPSHOT-sources.jar",
+          "size": 3569,
+          "sha512": "3abb49c3d771ed03173ce3fd1f666b19dbb5f0e07ec2c191c4cddebd87c4647029803dda3b3731d3341453fa33f053fa97deb0b93b6cddf9e65287ed4791eabc",
+          "sha256": "78d8b242a561debeb01097d5680b65904dd3450048a9adb7b24d659f4d00f415",
+          "sha1": "e810ba4cf9602445a31a9e4b3c095f70eab8df23",
+          "md5": "cc64c55d04653da99e842a63c2dfc31a"
+        }
+      ]
+    }
+  ]
+}

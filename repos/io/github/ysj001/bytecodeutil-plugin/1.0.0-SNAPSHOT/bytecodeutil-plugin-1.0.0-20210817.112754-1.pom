@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.ysj001</groupId>
+  <artifactId>bytecodeutil-plugin</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <name>bytecodeutil-plugin</name>
+  <description>BytecodeUtil æä»¶</description>
+  <url>https://github.com/Ysj001/BytecodeUtil</url>
+  <licenses>
+    <license>
+      <name>Apache-2.0 License</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>github_Ysj001</id>
+      <name>Ysj</name>
+      <email>543501451@qq.com</email>
+    </developer>
+  </developers>
+  <dependencies>
+    <dependency>
+      <groupId>io.github.ysj001</groupId>
+      <artifactId>bytecodeutil-api</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>
