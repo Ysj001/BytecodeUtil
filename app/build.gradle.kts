@@ -9,6 +9,7 @@ android {
     buildToolsVersion("29.0.3")
 
     defaultConfig {
+        minSdkVersion(29)
         applicationId = "com.ysj.lib.simpleaop"
         versionCode = 1
         versionName = "1.0"
@@ -42,10 +43,6 @@ android {
     lintOptions {
         isCheckReleaseBuilds = false
     }
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions.languageVersion = KOTLIN_VERSION
 }
 
 dependencies {

@@ -12,7 +12,7 @@ const val KOTLIN_VERSION = "1.4.10"
 const val ANDROID_GRADLE_VERSION = "4.1.3"
 
 /** 实际在工程中使用的库版本 */
-const val PROJECT_LIB_VERSION = "1.0.0-SNAPSHOT"
+const val PROJECT_LIB_VERSION = "1.0.0"
 
 /** 实际在工程中使用的库的 group id */
 const val PROJECT_LIB_GROUP_ID = "io.github.ysj001"

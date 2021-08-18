@@ -9,6 +9,7 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.javadoc.Javadoc
+import org.gradle.authentication.http.BasicAuthentication
 import org.gradle.external.javadoc.StandardJavadocDocletOptions
 import org.gradle.kotlin.dsl.*
 
@@ -48,6 +49,17 @@ fun Project.mavenPublish(groupId: String? = null, version: String? = null) {
             credentials {
                 username = property("mavenCentralUserName").toString()
                 password = property("mavenCentralPassword").toString()
+            }
+        }
+        maven {
+            name = "bhb"
+            setUrl("http://nexus.bhbcode.com/repository/3rdParty/")
+            credentials {
+                username = "yangshujian"
+                password = "YdFNC3kV330QXN7"
+            }
+            authentication {
+                this.create("basic", BasicAuthentication::class.java)
             }
         }
     }
