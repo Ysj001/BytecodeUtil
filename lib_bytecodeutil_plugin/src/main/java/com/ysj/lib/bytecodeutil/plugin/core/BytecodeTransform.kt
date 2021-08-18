@@ -76,7 +76,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             input.scopes,
             Format.JAR
         )
-        if (src.name in notNeedJarEntriesCache) {
+        if (src.absolutePath in notNeedJarEntriesCache) {
             FileUtils.copyFile(src, dest)
             return
         }
@@ -143,7 +143,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                 val entries = jf.entries()
                 entries.forEach entry@{
                     if (notNeedJarEntries()) {
-                        if (!entries.hasMoreElements()) notNeedJarEntriesCache.add(input.file.name)
+                        if (!entries.hasMoreElements()) notNeedJarEntriesCache.add(jf.name)
                         return@entry
                     }
                     logger.verbose("need process in jar --> ${name}")
