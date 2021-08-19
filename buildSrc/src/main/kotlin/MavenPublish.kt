@@ -51,17 +51,6 @@ fun Project.mavenPublish(groupId: String? = null, version: String? = null) {
                 password = property("mavenCentralPassword").toString()
             }
         }
-        maven {
-            name = "bhb"
-            setUrl("http://nexus.bhbcode.com/repository/3rdParty/")
-            credentials {
-                username = "yangshujian"
-                password = "YdFNC3kV330QXN7"
-            }
-            authentication {
-                this.create("basic", BasicAuthentication::class.java)
-            }
-        }
     }
 }
 
