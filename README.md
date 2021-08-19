@@ -1,4 +1,4 @@
-### ByteUtil
+### BytecodeUtil
 
 本库对一些常用的字节码修改目的进行封装，目的是为了便于开发者在源码中通过注解控制编译时的字节码生成，以达到一些编码时难以实现的功能。
 
@@ -10,18 +10,18 @@
 
 #### 了解&编译项目
 
-- ByteUtil
-  - app —— 用于演示的 Demo
-  - repos —— ByteUtil 的本地 maven 仓库，便于开发时调试
-  - lib_byteutil_api —— ByteUtil 的相关 API
-  - lib_byteutil_plugin —— ByteUtil 的插件，用于编译时修改字节码
-    - .../modifoer/impl/ —— 存放所有字节码修改器实现目录
-      - aspect —— AOP 相关实现
-      - di —— 依赖注入相关实现
+- BytecodeUtil
+  - `app` —— 用于演示的 Demo
+  - `repos` —— BytecodeUtil 的本地 maven 仓库，便于开发时调试
+  - `lib_bytecodeutil_api` —— BytecodeUtil 的相关 API
+  - `lib_bytecodeutil_plugin` —— BytecodeUtil 的插件，用于编译时修改字节码
+    - `.../modifoer/impl/` —— 存放所有字节码修改器实现目录
+      - `aspect` —— AOP 相关实现
+      - `di` —— 依赖注入相关实现
 
 注意：在构建前先在项目根目录下执行该命令保持本地仓库应用最新的源码
 
-- ./gradlew uploadArchives
+- gradlew publishAllPublicationsToLocalRepository
 
 
 
@@ -81,9 +81,9 @@ AOP 有常见的几种实现方式：拦截器；动态代理；编译期代码�
       val funDesc: String,
       /**
        * 切入点的具体执行位置
-       * - -1 表示插入方法末尾
-       * - 0 表示插入方法开头
-       * - 其它 表示插入到方法中任意位置
+       * - -1 插入方法 return 前
+       * - 0 插入方法开头
+       * - 1 插入方法调用点，并代理目标调用
        */
       val position: Int,
   )
@@ -99,7 +99,7 @@ AOP 有常见的几种实现方式：拦截器；动态代理；编译期代码�
 
   ```kotlin
   class JoinPoint(
-      /** 切入点的 this 获取的对象 */
+      /** 切入点的 this 获取的对象，若切入点在静态方法内，则为 null */
       val target: Any,
       /** 切入点方法的参数 */
       val args: Array<Any?>,
