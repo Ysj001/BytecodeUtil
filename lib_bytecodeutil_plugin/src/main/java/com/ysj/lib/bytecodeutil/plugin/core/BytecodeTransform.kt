@@ -17,8 +17,6 @@ import java.util.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
-import java.util.zip.ZipEntry
-import kotlin.collections.HashSet
 
 /**
  *
@@ -32,11 +30,9 @@ class BytecodeTransform(private val project: Project) : Transform() {
         const val PLUGIN_NAME = "BytecodeUtilPlugin"
     }
 
-    private val logger = YLogger.getLogger(javaClass)
     lateinit var extensions: BytecodeUtilExtensions
 
-    /** 不需要的 [JarEntry] 用于提升处理速度 */
-    private val notNeedJarEntriesCache by lazy(LazyThreadSafetyMode.NONE) { HashSet<String>() }
+    private val logger = YLogger.getLogger(javaClass)
 
     private val modifierManager by lazy(LazyThreadSafetyMode.NONE) { ModifierManager(this) }
 
@@ -58,48 +54,92 @@ class BytecodeTransform(private val project: Project) : Transform() {
                                            outputProvider,
                                            isIncremental ->
             if (!isIncremental) outputProvider.deleteAll()
-            // 预处理，用于提前获取信息
-            inputs.forEach { prePrecess(it.jarInputs, it.directoryInputs) }
-            inputs.forEach {
-                // 处理 jar
-                it.jarInputs.forEach { input -> processJar(input, outputProvider) }
-                // 处理源码
-                it.directoryInputs.forEach { input -> processDir(input, outputProvider) }
+            val oldTime = System.currentTimeMillis()
+            val dirItems = LinkedList<Pair<File, ProcessItem>>()
+            val jarItems = LinkedList<JarProcessItem>()
+            // 预处理
+            inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems, jarItems) }
+            logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
+            // 正式处理
+            process(dirItems, jarItems)
+        }
+    }
+
+    private fun process(
+        jis: Collection<JarInput>,
+        dis: Collection<DirectoryInput>,
+        output: TransformOutputProvider,
+        dirItems: LinkedList<Pair<File, ProcessItem>>,
+        jarItems: LinkedList<JarProcessItem>,
+    ) {
+        jis.forEach { input ->
+            val src = input.file
+            val dest = output.getContentLocation(
+                input.name,
+                input.contentTypes,
+                input.scopes,
+                Format.JAR
+            )
+            val notNeeds = LinkedList<JarEntry>()
+            val needs = LinkedList<Pair<JarEntry, ProcessItem>>()
+            JarFile(src).use { jf ->
+                val entries = jf.entries()
+                entries.forEach {
+                    /*
+                        由于该 transform 可能后于其他 transform
+                        此时该 transform 的输入源会变为其他 transform 的输出
+                        此时输入源的名称会发生变化，因此不能简单通过 input.file.name 过滤
+                     */
+                    if (notNeedJarEntries()) notNeeds.push(this) else {
+                        logger.verbose("process jar file --> $name")
+                        needs.push(this to jf.getInputStream(this).visit())
+                    }
+                }
+            }
+            if (needs.isEmpty()) FileUtils.copyFile(src, dest)
+            else jarItems.push(JarProcessItem(src, dest, notNeeds, needs))
+        }
+        dis.forEach { input ->
+            val src = input.file
+            val dest = output.getContentLocation(
+                input.name,
+                input.contentTypes,
+                input.scopes,
+                Format.DIRECTORY
+            )
+            FileUtils.copyDirectory(src, dest)
+            dest.walk().forEach test@{
+                if (!it.isNeedFile()) return@test
+                logger.verbose("process dir file --> ${it.name}")
+                dirItems.push(it to it.inputStream().visit())
             }
         }
     }
 
-    private fun processJar(input: JarInput, output: TransformOutputProvider) {
-        val src = input.file
-        val dest = output.getContentLocation(
-            input.name,
-            input.contentTypes,
-            input.scopes,
-            Format.JAR
-        )
-        if (src.absolutePath in notNeedJarEntriesCache) {
-            FileUtils.copyFile(src, dest)
-            return
+    private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>, jarItems: LinkedList<JarProcessItem>) {
+        dirItems.forEach { pair ->
+            val dest = pair.first
+            val item = pair.second
+            modifierManager.modify(item.classNode)
+            val cw = ClassWriter(item.classReader, 0)
+            item.classNode.accept(cw)
+            FileOutputStream(dest).use { it.write(cw.toByteArray()) }
         }
-        JarFile(src).use { jf ->
-            JarOutputStream(dest.outputStream()).use { jos ->
-                jf.entries().forEach {
-                    jf.getInputStream(this).use { ips ->
-                        val zipEntry = ZipEntry(name)
-                        if (notNeedJarEntries()) {
-                            jos.putNextEntry(zipEntry)
-                            jos.write(ips.readBytes())
-                        } else {
-//                            logger.quiet("process jar element --> ${it.name}")
-                            val cr = ClassReader(ips)
-                            val cw = ClassWriter(cr, 0)
-                            val cv = ClassNode()
-                            cr.accept(cv, 0)
-                            modifierManager.modify(cv)
-                            cv.accept(cw)
-                            jos.putNextEntry(zipEntry)
-                            jos.write(cw.toByteArray())
-                        }
+        jarItems.forEach { jpi ->
+            JarFile(jpi.src).use { jf ->
+                JarOutputStream(jpi.dest.outputStream()).use { jos ->
+                    jpi.needs.forEach { need ->
+                        val item = need.second
+                        val cw = ClassWriter(item.classReader, 0)
+                        modifierManager.modify(item.classNode)
+                        item.classNode.accept(cw)
+                        jos.putNextEntry(JarEntry(need.first.name))
+                        jos.write(cw.toByteArray())
+                        jos.closeEntry()
+                    }
+                    jpi.notNeeds.forEach { notNeed ->
+                        jos.putNextEntry(JarEntry(notNeed.name))
+                        jos.write(jf.getInputStream(notNeed).readBytes())
                         jos.closeEntry()
                     }
                 }
@@ -107,80 +147,20 @@ class BytecodeTransform(private val project: Project) : Transform() {
         }
     }
 
-    private fun processDir(input: DirectoryInput, output: TransformOutputProvider) {
-        val src = input.file
-        val dest = output.getContentLocation(
-            input.name,
-            input.contentTypes,
-            input.scopes,
-            Format.DIRECTORY
-        )
-        FileUtils.copyDirectory(src, dest)
-        dest.walk().forEach {
-            if (!it.isNeedFile()) return@forEach
-//                logger.quiet("process file --> ${it.name}")
-            it.inputStream().use { fis ->
-                val cr = ClassReader(fis)
-                val cw = ClassWriter(cr, 0)
-                val cv = ClassNode()
-                cr.accept(cv, 0)
-                modifierManager.modify(cv)
-                cv.accept(cw)
-                FileOutputStream(it).use { fos ->
-                    fos.write(cw.toByteArray())
-                }
-            }
-        }
-    }
-
-    private fun prePrecess(jis: Collection<JarInput>, dis: Collection<DirectoryInput>) {
-        jis.forEach { input ->
-            JarFile(input.file).use { jf ->
-                /*
-                    由于该 transform 可能后于其他 transform
-                    此时该 transform 的输入源会变为其他 transform 的输出
-                    此时输入源的名称会发生变化，因此不能简单通过 input.file.name 过滤
-                 */
-                val entries = jf.entries()
-                entries.forEach entry@{
-                    if (notNeedJarEntries()) {
-                        if (!entries.hasMoreElements()) notNeedJarEntriesCache.add(jf.name)
-                        return@entry
-                    }
-                    logger.verbose("need process in jar --> ${name}")
-                    jf.getInputStream(this).preVisitor()
-                }
-            }
-        }
-        dis.forEach { input ->
-            input.file.walk().forEach test@{
-                if (!it.isNeedFile()) return@test
-                logger.verbose("need process in dir --> ${it.name}")
-                it.inputStream().preVisitor()
-            }
-        }
-    }
-
-    private fun InputStream.preVisitor() = use {
+    private fun InputStream.visit() = use {
         val cr = ClassReader(it)
         val cv = ClassNode()
         cr.accept(cv, 0)
         modifierManager.scan(cv)
+        ProcessItem(cr, cv)
     }
 
     private fun JarEntry.notNeedJarEntries(): Boolean =
         name.endsWith(".class").not()
-                || name.startsWith("kotlin/")
-                || name.startsWith("kotlinx/")
-                || name.startsWith("javax/")
-                || name.startsWith("org/intellij/")
-                || name.startsWith("org/jetbrains/")
-                || name.startsWith("org/junit/")
-                || name.startsWith("org/hamcrest/")
-                || name.startsWith("com/squareup/")
-                || name.startsWith("androidx/")
-//                || name.startsWith("android/")
-                || name.startsWith("com/google/android/")
+                || checkAndroidRFile(name)
+                || name.startsWith("META-INF/")
+                || name.startsWith("com/ysj/lib/bytecodeutil/")
+                || extensions.notNeedJar?.invoke(name) ?: false
 
     private fun File.isNeedFile(): Boolean = isFile && extension == "class"
 
@@ -216,4 +196,15 @@ class BytecodeTransform(private val project: Project) : Transform() {
         logger.quiet("=================== $PLUGIN_NAME transform end   ===================")
     }
 
+    private class JarProcessItem(
+        val src: File,
+        val dest: File,
+        val notNeeds: LinkedList<JarEntry>,
+        val needs: LinkedList<Pair<JarEntry, ProcessItem>>
+    )
+
+    private class ProcessItem(
+        val classReader: ClassReader,
+        val classNode: ClassNode,
+    )
 }
