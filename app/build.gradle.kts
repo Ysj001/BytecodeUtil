@@ -4,12 +4,29 @@ plugins {
     id("bytecodeutil-plugin")
 }
 
+bytecodeUtil {
+    loggerLevel = 1
+    notNeedJar = { entryName ->
+        entryName.startsWith("kotlin/")
+                || entryName.startsWith("kotlinx/")
+                || entryName.startsWith("javax/")
+                || entryName.startsWith("org/intellij/")
+                || entryName.startsWith("org/jetbrains/")
+                || entryName.startsWith("org/junit/")
+                || entryName.startsWith("org/hamcrest/")
+                || entryName.startsWith("com/squareup/")
+                || entryName.startsWith("androidx/")
+                || entryName.startsWith("android/")
+                || entryName.startsWith("com/google/android/")
+    }
+}
+
 android {
     compileSdkVersion(29)
     buildToolsVersion("29.0.3")
 
     defaultConfig {
-        minSdkVersion(29)
+        minSdkVersion(19)
         applicationId = "com.ysj.lib.simpleaop"
         versionCode = 1
         versionName = "1.0"

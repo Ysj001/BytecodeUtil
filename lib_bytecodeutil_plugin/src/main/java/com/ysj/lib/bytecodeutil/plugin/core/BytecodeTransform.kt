@@ -33,6 +33,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
     }
 
     private val logger = YLogger.getLogger(javaClass)
+    lateinit var extensions: BytecodeUtilExtensions
 
     /** 不需要的 [JarEntry] 用于提升处理速度 */
     private val notNeedJarEntriesCache by lazy(LazyThreadSafetyMode.NONE) { HashSet<String>() }
@@ -197,6 +198,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             isIncremental: Boolean
         ) -> Unit
     ) {
+        YLogger.LOGGER_LEVEL = extensions.loggerLevel
         logger.quiet("=================== $PLUGIN_NAME transform start ===================")
         logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
         logger.quiet(">>> gradle plugin version: ${Version.ANDROID_GRADLE_PLUGIN_VERSION}")
@@ -210,7 +212,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             transformInvocation.outputProvider,
             transformInvocation.isIncremental
         )
-        logger.quiet(">>> process time: ${System.currentTimeMillis() - startTime} ms")
+        logger.quiet(">>> total process time: ${System.currentTimeMillis() - startTime} ms")
         logger.quiet("=================== $PLUGIN_NAME transform end   ===================")
     }
 
