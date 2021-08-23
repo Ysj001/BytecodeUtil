@@ -84,7 +84,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         val proxyName = calling.proxyName()
         val find = methods.find { it.access == Opcodes.ACC_STATIC && name == proxyName }
         if (find != null) return find
-        val callerDesc = if (calling.isStatic) "" else Type.getObjectType(calling.owner).descriptor
+        val callerType = Type.getObjectType(calling.owner)
+        val callerDesc = if (calling.isStatic) "" else callerType.descriptor
         val args = Type.getArgumentTypes(calling.desc)
         val argsDesc = args.map { it.descriptor }.toTypedArray().contentToString().run {
             substring(1 until lastIndex).replace(", ", "")
@@ -111,16 +112,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // JoinPoint
             if (hasJoinPoint) add(VarInsnNode(Opcodes.ALOAD, argsNextIndex))
             // caller
-            if (!calling.isStatic) add(VarInsnNode(Opcodes.ALOAD, 0)) else {
-                add(LdcInsnNode(calling.owner.replace("/", ".")))
-                add(MethodInsnNode(
-                    Opcodes.INVOKESTATIC,
-                    classType.internalName,
-                    "forName",
-                    "(Ljava/lang/String;)${classType.descriptor}",
-                    false
-                ))
-            }
+            add(if (!calling.isStatic) VarInsnNode(Opcodes.ALOAD, 0) else LdcInsnNode(callerType))
             // isStatic
             add(InsnNode(if (calling.isStatic) Opcodes.ICONST_1 else Opcodes.ICONST_0))
             // funName
@@ -157,14 +149,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         forEachIndexed { i, t ->
             add(InsnNode(Opcodes.DUP))
             add(IntInsnNode(Opcodes.BIPUSH, i))
-            add(LdcInsnNode(t.internalName.replace("/", ".")))
-            add(MethodInsnNode(
-                Opcodes.INVOKESTATIC,
-                classType.internalName,
-                "forName",
-                "(Ljava/lang/String;)${classType.descriptor}",
-                false
-            ))
+            add(LdcInsnNode(t))
             add(InsnNode(Opcodes.AASTORE))
         }
     }
