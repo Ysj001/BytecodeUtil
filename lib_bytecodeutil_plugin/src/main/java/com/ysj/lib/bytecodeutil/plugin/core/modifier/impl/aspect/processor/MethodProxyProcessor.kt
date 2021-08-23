@@ -58,7 +58,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // 切面方法的参数
             val aspectFunArgs = pointcutBean.aspectFunArgs
             val hasJoinPoint = aspectFunArgs.indexOfFirst { it.className == JoinPoint::class.java.name } >= 0
-            if (hasJoinPoint && !methodNode.isStoredJoinPoint) {
+            if (hasJoinPoint && !firstLabel.beforeIsStoredJoinPoint) {
                 insnList.insertBefore(firstLabel, storeJoinPoint(classNode, methodNode))
             }
             val proxyMethod = classNode.generateProxyMethod(pointcutBean, node, hasJoinPoint)

@@ -20,13 +20,18 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
     val joinPointType = Type.getType(JoinPoint::class.java)
 
     /**
-     * 判断该方法是否已经存了 [JoinPoint]
+     * 判断指定 node 前是否已经存了 [JoinPoint]
      */
-    val MethodNode.isStoredJoinPoint: Boolean
+    val AbstractInsnNode.beforeIsStoredJoinPoint: Boolean
         get() {
-            for (node in instructions) {
-                if (node !is MethodInsnNode || node.opcode != Opcodes.INVOKESTATIC || node.owner != joinPointType.internalName || node.name != "put") continue
-                return true
+            var node: AbstractInsnNode? = this
+            while (node != null) {
+                if (node is MethodInsnNode
+                    && node.opcode == Opcodes.INVOKESTATIC
+                    && node.owner == joinPointType.internalName
+                    && node.name == "put"
+                ) return true
+                node = node.previous
             }
             return false
         }

@@ -45,7 +45,7 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         } ?: return
         // 切面方法的参数
         val hasJoinPoint = pointcut.aspectFunArgs.isNotEmpty()
-        if (hasJoinPoint && !methodNode.isStoredJoinPoint) {
+        if (hasJoinPoint && !firstLabel.beforeIsStoredJoinPoint) {
             insnList.insertBefore(firstLabel, storeJoinPoint(classNode, methodNode))
         }
         // 将 Pointcut 和 JointPoint 连接 XXX.instance.xxxfun(jointPoint);
