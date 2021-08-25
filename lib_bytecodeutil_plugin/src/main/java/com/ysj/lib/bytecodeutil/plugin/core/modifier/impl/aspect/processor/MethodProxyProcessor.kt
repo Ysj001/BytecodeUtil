@@ -5,6 +5,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.plugin.core.MD5
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.cast
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.firstNode
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.AspectModifier
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.PointcutBean
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.isStatic
@@ -36,6 +37,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     fun process(classNode: ClassNode, methodNode: MethodNode) {
         val insnList = methodNode.instructions
         val insnNodes = insnList.toArray()
+        val firstNode = methodNode.firstNode
         insnNodes.forEach node@{ node ->
             if (node !is MethodInsnNode) return@node
             val pointcutBean = targetCallStart.find {
@@ -43,23 +45,11 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                         && Pattern.matches(it.funName, node.name)
                         && Pattern.matches(it.funDesc, node.desc)
             } ?: return@node
-            val firstLabel = if (methodNode.name != "<init>") insnList.first else {
-                var result: AbstractInsnNode? = null
-                val iterator = insnList.iterator()
-                while (iterator.hasNext()) {
-                    val next = iterator.next()
-                    if (next.opcode == Opcodes.INVOKESPECIAL) {
-                        result = next.next
-                        break
-                    }
-                }
-                result
-            } ?: return@node
             // 切面方法的参数
             val aspectFunArgs = pointcutBean.aspectFunArgs
             val hasJoinPoint = aspectFunArgs.indexOfFirst { it.className == JoinPoint::class.java.name } >= 0
-            if (hasJoinPoint && !firstLabel.beforeIsStoredJoinPoint) {
-                insnList.insertBefore(firstLabel, storeJoinPoint(classNode, methodNode))
+            if (hasJoinPoint && !firstNode.beforeIsStoredJoinPoint) {
+                insnList.insertBefore(firstNode, storeJoinPoint(classNode, methodNode))
             }
             val proxyMethod = classNode.generateProxyMethod(pointcutBean, node, hasJoinPoint)
             val proxyNode = MethodInsnNode(Opcodes.INVOKESTATIC, classNode.name, proxyMethod.name, proxyMethod.desc, false)

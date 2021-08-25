@@ -3,6 +3,7 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.processor
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_RETURN
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_START
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.firstNode
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.AspectModifier
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.PointcutBean
 import org.objectweb.asm.Opcodes
@@ -31,22 +32,11 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     fun process(pointcut: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
         if (pointcut.position != POSITION_RETURN && pointcut.position != POSITION_START) return
         val insnList = methodNode.instructions
-        val firstLabel = if (methodNode.name != "<init>") insnList.first else {
-            var result: AbstractInsnNode? = null
-            val iterator = insnList.iterator()
-            while (iterator.hasNext()) {
-                val next = iterator.next()
-                if (next.opcode == Opcodes.INVOKESPECIAL) {
-                    result = next.next
-                    break
-                }
-            }
-            result
-        } ?: return
+        val firstNode = methodNode.firstNode
         // 切面方法的参数
         val hasJoinPoint = pointcut.aspectFunArgs.isNotEmpty()
-        if (hasJoinPoint && !firstLabel.beforeIsStoredJoinPoint) {
-            insnList.insertBefore(firstLabel, storeJoinPoint(classNode, methodNode))
+        if (hasJoinPoint && !firstNode.beforeIsStoredJoinPoint) {
+            insnList.insertBefore(firstNode, storeJoinPoint(classNode, methodNode))
         }
         // 将 Pointcut 和 JointPoint 连接 XXX.instance.xxxfun(jointPoint);
         val callAspectFun: (AbstractInsnNode) -> Unit = {
@@ -68,7 +58,7 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             })
         }
         when (pointcut.position) {
-            POSITION_START -> callAspectFun(firstLabel)
+            POSITION_START -> callAspectFun(firstNode)
             POSITION_RETURN -> for (insnNode in insnList) {
                 if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
                 callAspectFun(insnNode)
