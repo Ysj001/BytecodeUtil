@@ -23,6 +23,22 @@ fun AnnotationNode.params() = HashMap<String, Any>().also {
     }
 }
 
+/** 方法的第一个可用 node */
+val MethodNode.firstNode: AbstractInsnNode
+    get() = if (name == "<init>") {
+        var result: AbstractInsnNode = instructions.first
+        while (result.opcode != Opcodes.INVOKESPECIAL) {
+            result = result.next
+        }
+        result.next
+    } else {
+        var result: AbstractInsnNode? = instructions.first
+        while (result != null && result.opcode != -1) {
+            result = result.next
+        }
+        result ?: instructions.first
+    }
+
 /**
  * 获取方法参数列表的对象集合
  *
