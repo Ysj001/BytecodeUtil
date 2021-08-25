@@ -19,6 +19,12 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
 
     val joinPointType = Type.getType(JoinPoint::class.java)
 
+    private val joinPointRemovedCache by lazy {
+        var cache = aspectModifier.cache["joinPointRemovedCache"]
+        if (cache == null) cache = HashSet<String>().also { aspectModifier.cache["joinPointRemovedCache"] = it }
+        cache as HashSet<String>
+    }
+
     /**
      * 判断指定 node 前是否已经存了 [JoinPoint]
      */
@@ -59,6 +65,36 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
             false
         ))
     }
+
+    /**
+     * 从缓存中移除 [JoinPoint]
+     * ```
+     * JoinPoint.remove("{className}-{methodName}{methodDesc}")
+     * ```
+     */
+    fun removeJoinPoint(classNode: ClassNode, methodNode: MethodNode): InsnList = InsnList().apply {
+        add(LdcInsnNode("${classNode.name}-${methodNode.name}${methodNode.desc}"))
+        add(MethodInsnNode(
+            Opcodes.INVOKESTATIC,
+            joinPointType.internalName,
+            "remove",
+            "(Ljava/lang/String;)V",
+            false
+        ))
+    }
+
+    /**
+     * 缓存某方法中已经移除了 [JoinPoint]
+     */
+    fun cacheRemovedJoinPoint(classNode: ClassNode, methodNode: MethodNode) {
+        joinPointRemovedCache.add("${classNode.name}-${methodNode.name}-${methodNode.desc}")
+    }
+
+    /**
+     * 若某方法已经移除 [JoinPoint] 则为 true
+     */
+    fun isRemovedJoinPoint(classNode: ClassNode, methodNode: MethodNode): Boolean =
+        joinPointRemovedCache.contains("${classNode.name}-${methodNode.name}-${methodNode.desc}")
 
     /**
      * 从缓存中取出 [JoinPoint]

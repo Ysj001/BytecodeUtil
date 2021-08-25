@@ -57,13 +57,22 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                 ))
             })
         }
+        val isStoredJoinPoint = firstNode.beforeIsStoredJoinPoint
+        val removedJoinPoint = isRemovedJoinPoint(classNode, methodNode)
         when (pointcut.position) {
             POSITION_START -> callAspectFun(firstNode)
             POSITION_RETURN -> for (insnNode in insnList) {
                 if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
                 callAspectFun(insnNode)
+                if (!isStoredJoinPoint || removedJoinPoint) continue
+                insnList.insertBefore(insnNode, removeJoinPoint(classNode, methodNode))
             }
         }
+        if (isStoredJoinPoint && pointcut.position != POSITION_RETURN && !removedJoinPoint) for (insnNode in insnList) {
+            if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
+            insnList.insertBefore(insnNode, removeJoinPoint(classNode, methodNode))
+        }
+        if (isStoredJoinPoint) cacheRemovedJoinPoint(classNode, methodNode)
         logger.info("Method Inner 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
     }
 

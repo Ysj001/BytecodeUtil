@@ -13,6 +13,7 @@ import org.objectweb.asm.tree.*
 import java.util.*
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 /**
  * 用于处理 [Aspect] , [Pointcut] 来实现切面的修改器
@@ -24,6 +25,8 @@ class AspectModifier(
     override val transform: Transform,
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
+
+    val cache by lazy { HashMap<String, Any>() }
 
     private val logger = YLogger.getLogger(javaClass)
 
