@@ -20,10 +20,15 @@ class JoinPoint(
 
         @JvmStatic
         fun put(key: String, value: JoinPoint) {
-            STORE[key] = value
+            STORE["${Thread.currentThread().id}-$key"] = value
         }
 
         @JvmStatic
-        fun get(key: String) = STORE[key]
+        fun remove(key: String) {
+            STORE.remove("${Thread.currentThread().id}-$key")
+        }
+
+        @JvmStatic
+        fun get(key: String) = STORE["${Thread.currentThread().id}-$key"]
     }
 }
