@@ -31,8 +31,8 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     fun process(pointcut: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
         if (pointcut.position != POSITION_RETURN && pointcut.position != POSITION_START) return
+        val firstNode = methodNode.firstNode ?: return
         val insnList = methodNode.instructions
-        val firstNode = methodNode.firstNode
         // 切面方法的参数
         val hasJoinPoint = pointcut.aspectFunArgs.isNotEmpty()
         if (hasJoinPoint && !firstNode.beforeIsStoredJoinPoint) {

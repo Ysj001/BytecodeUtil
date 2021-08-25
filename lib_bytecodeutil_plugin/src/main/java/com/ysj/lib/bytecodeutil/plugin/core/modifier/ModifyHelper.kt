@@ -24,7 +24,7 @@ fun AnnotationNode.params() = HashMap<String, Any>().also {
 }
 
 /** 方法的第一个可用 node */
-val MethodNode.firstNode: AbstractInsnNode
+val MethodNode.firstNode: AbstractInsnNode?
     get() = if (name == "<init>") {
         var result: AbstractInsnNode = instructions.first
         while (result.opcode != Opcodes.INVOKESPECIAL) {

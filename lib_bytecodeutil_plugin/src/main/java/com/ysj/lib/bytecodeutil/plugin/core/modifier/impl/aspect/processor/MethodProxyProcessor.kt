@@ -35,9 +35,9 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     val callingPointType = Type.getType(CallingPoint::class.java)
 
     fun process(classNode: ClassNode, methodNode: MethodNode) {
+        val firstNode = methodNode.firstNode ?: return
         val insnList = methodNode.instructions
         val insnNodes = insnList.toArray()
-        val firstNode = methodNode.firstNode
         insnNodes.forEach node@{ node ->
             if (node !is MethodInsnNode) return@node
             val pointcutBean = targetCallStart.find {
