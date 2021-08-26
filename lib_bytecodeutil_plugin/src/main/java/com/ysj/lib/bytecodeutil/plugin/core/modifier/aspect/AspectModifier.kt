@@ -102,18 +102,17 @@ class AspectModifier(
                 POSITION_CALL -> methodProxyProcessor.targetCallStart.add(pointcutBean)
             }
         }
+        handleAspect(classNode)
     }
 
-    override fun modify(classNode: ClassNode) {
-        handleAspect(classNode)
-        handlePointcut(classNode)
+    override fun modify() {
+        allClassNode.forEach { handlePointcut(it.value) }
     }
 
     /**
      * 在 [Aspect] 注解的类中添加用于获取该类实例的静态成员
      */
     private fun handleAspect(classNode: ClassNode) {
-        if (Type.getDescriptor(Aspect::class.java) !in classNode.invisibleAnnotations?.map { it.desc } ?: Collections.EMPTY_LIST) return
         val fieldInstance = FieldNode(
             Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC or Opcodes.ACC_FINAL,
             "instance",

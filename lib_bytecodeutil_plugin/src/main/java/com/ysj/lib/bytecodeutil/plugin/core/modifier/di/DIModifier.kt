@@ -19,7 +19,7 @@ class DIModifier(
         // TODO
     }
 
-    override fun modify(classNode: ClassNode) {
+    override fun modify() {
         // TODO
     }
 }

@@ -124,10 +124,10 @@ class BytecodeTransform(private val project: Project) : Transform() {
     }
 
     private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>, jarItems: LinkedList<JarProcessItem>) {
+        modifierManager.modify()
         dirItems.forEach { pair ->
             val dest = pair.first
             val item = pair.second
-            modifierManager.modify(item.classNode)
             val cw = ClassWriter(item.classReader, 0)
             item.classNode.accept(cw)
             FileOutputStream(dest).use { it.write(cw.toByteArray()) }
@@ -138,7 +138,6 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     jpi.needs.forEach { need ->
                         val item = need.second
                         val cw = ClassWriter(item.classReader, 0)
-                        modifierManager.modify(item.classNode)
                         item.classNode.accept(cw)
                         jos.putNextEntry(JarEntry(need.first.name))
                         jos.write(cw.toByteArray())

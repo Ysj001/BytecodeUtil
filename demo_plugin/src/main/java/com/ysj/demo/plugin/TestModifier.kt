@@ -15,7 +15,7 @@ class TestModifier(
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
-    override fun modify(classNode: ClassNode) {
+    override fun modify() {
     }
 
     override fun scan(classNode: ClassNode) {
