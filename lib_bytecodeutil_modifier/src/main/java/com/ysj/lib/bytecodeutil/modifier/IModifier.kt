@@ -17,12 +17,12 @@ interface IModifier {
     val allClassNode: Map<String, ClassNode>
 
     /**
-     * 扫描类信息，用于确定要修改的类
+     * 扫描类所有需要修改的类，每扫描到一个类会回调一次该方法
      */
     fun scan(classNode: ClassNode)
 
     /**
-     * 开始修改
+     * 开始修改 [scan] 到的类
      */
     fun modify()
 }
