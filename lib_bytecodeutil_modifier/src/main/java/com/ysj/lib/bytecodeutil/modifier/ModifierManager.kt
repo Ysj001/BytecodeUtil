@@ -20,7 +20,7 @@ class ModifierManager(override val transform: Transform) : IModifier {
         modifiers.forEach { it.scan(classNode) }
     }
 
-    override fun modify(classNode: ClassNode) = modifiers.forEach { it.modify(classNode) }
+    override fun modify() = modifiers.forEach { it.modify() }
 
     fun addModifier(modifier: Class<out IModifier>) {
         val constructor = modifier.getConstructor(Transform::class.java, Map::class.java)
