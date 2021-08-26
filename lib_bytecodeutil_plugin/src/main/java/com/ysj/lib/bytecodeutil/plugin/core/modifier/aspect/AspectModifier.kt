@@ -1,12 +1,12 @@
-package com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect
+package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
 import com.android.build.api.transform.Transform
 import com.ysj.lib.bytecodeutil.api.aspect.*
+import com.ysj.lib.bytecodeutil.modifier.IModifier
+import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.IModifier
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.processor.MethodInnerProcessor
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.processor.MethodProxyProcessor
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.params
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*

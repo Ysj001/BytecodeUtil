@@ -4,8 +4,10 @@ import com.android.Version
 import com.android.build.api.transform.*
 import com.android.build.gradle.internal.pipeline.TransformManager
 import com.android.utils.FileUtils
+import com.ysj.lib.bytecodeutil.modifier.IModifier
+import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.ModifierManager
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
 import org.gradle.api.Project
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
@@ -48,6 +50,11 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     override fun transform(transformInvocation: TransformInvocation) {
         super.transform(transformInvocation)
+        modifierManager.addModifier(AspectModifier::class.java)
+        extensions.modifiers?.forEach {
+            modifierManager.addModifier(it as Class<out IModifier>)
+            logger.verbose("addModifier --> $it")
+        }
         doTransform(transformInvocation) { context,
                                            inputs,
                                            referencedInputs,

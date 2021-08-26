@@ -21,6 +21,7 @@ dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$KOTLIN_VERSION")
     compileOnly("com.android.tools.build:gradle:$ANDROID_GRADLE_VERSION")
     implementation("$LIB_GROUP_ID:bytecodeutil-api:$LIB_VERSION")
+    implementation("$LIB_GROUP_ID:bytecodeutil-modifier:$LIB_VERSION")
 }
 
 mavenPublish()

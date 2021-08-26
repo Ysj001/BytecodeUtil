@@ -21,4 +21,7 @@ open class BytecodeUtilExtensions {
     /** 用于确定哪些 [JarEntry] 不用处理，返回 true 表示不需要处理 */
     var notNeedJar: ((entryName: String) -> Boolean)? = null
 
+    /** 附加的修改器 */
+    var modifiers: Array<Class<*>>? = null
+
 }

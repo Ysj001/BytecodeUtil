@@ -1,10 +1,10 @@
-package com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.processor
+package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.argsInsnList
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect.AspectModifier
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.isStatic
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.newObject
+import com.ysj.lib.bytecodeutil.modifier.argsInsnList
+import com.ysj.lib.bytecodeutil.modifier.isStatic
+import com.ysj.lib.bytecodeutil.modifier.newObject
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*

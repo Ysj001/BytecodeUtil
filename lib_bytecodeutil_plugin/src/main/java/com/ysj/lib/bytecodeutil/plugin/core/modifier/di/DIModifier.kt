@@ -1,7 +1,7 @@
-package com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.di
+package com.ysj.lib.bytecodeutil.plugin.core.modifier.di
 
 import com.android.build.api.transform.Transform
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.IModifier
+import com.ysj.lib.bytecodeutil.modifier.IModifier
 import org.objectweb.asm.tree.ClassNode
 
 /**

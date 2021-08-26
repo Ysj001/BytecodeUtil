@@ -20,6 +20,9 @@ class Main : Plugin<Project> {
             appExt.registerTransform(transform)
             project.afterEvaluate {
                 transform.extensions = it.extensions.getByType(BytecodeUtilExtensions::class.java)
+                transform.extensions.modifiers?.forEach {m->
+                    project.logger.lifecycle("modifiers --> $m , ${m.methods.size}")
+                }
             }
         }
     }

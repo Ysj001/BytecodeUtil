@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.plugin.core.modifier.impl.aspect
+package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
 import org.objectweb.asm.Type
 import java.io.Serializable
