@@ -6,6 +6,9 @@ plugins {
 
 bytecodeUtil {
     loggerLevel = 1
+    modifiers = arrayOf(
+        Class.forName("com.ysj.demo.plugin.TestModifier")
+    )
     notNeedJar = { entryName ->
         entryName.startsWith("kotlin/")
                 || entryName.startsWith("kotlinx/")

@@ -7,3 +7,4 @@ include(":lib_bytecodeutil_modifier")
 
 // Demo
 include(":app")
+include(":demo_plugin")

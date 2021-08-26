@@ -13,7 +13,9 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/buildSrc" />
+            <option value="$PROJECT_DIR$/demo_plugin" />
             <option value="$PROJECT_DIR$/lib_bytecodeutil_api" />
+            <option value="$PROJECT_DIR$/lib_bytecodeutil_modifier" />
             <option value="$PROJECT_DIR$/lib_bytecodeutil_plugin" />
           </set>
         </option>
