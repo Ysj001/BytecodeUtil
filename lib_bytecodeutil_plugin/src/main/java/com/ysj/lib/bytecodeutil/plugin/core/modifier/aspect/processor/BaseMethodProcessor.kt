@@ -5,8 +5,8 @@ import com.ysj.lib.bytecodeutil.modifier.argsInsnList
 import com.ysj.lib.bytecodeutil.modifier.isStatic
 import com.ysj.lib.bytecodeutil.modifier.newObject
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointType
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 
 /**
@@ -16,8 +16,6 @@ import org.objectweb.asm.tree.*
  * Create time: 2021/8/15
  */
 open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
-
-    val joinPointType = Type.getType(JoinPoint::class.java)
 
     private val joinPointRemovedCache by lazy {
         var cache = aspectModifier.cache["joinPointRemovedCache"]

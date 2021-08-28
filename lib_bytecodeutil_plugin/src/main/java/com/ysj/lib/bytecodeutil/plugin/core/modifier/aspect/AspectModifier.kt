@@ -36,13 +36,11 @@ class AspectModifier(
 
     override fun scan(classNode: ClassNode) {
         // 过滤所有没有 Aspect 注解的类
-        if (Type.getDescriptor(Aspect::class.java) !in classNode.invisibleAnnotations?.map { it.desc } ?: Collections.EMPTY_LIST) return
+        if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } == null) return
         classNode.methods.forEach {
-            // 过滤构造器和静态代码块
-            if (it.name == "<init>" || it.name == "<clinit>") return@forEach
             // 查找 Pointcut 注解的方法
             val pointCutAnnotation = it.invisibleAnnotations
-                ?.find { anode -> anode.desc == Type.getDescriptor(Pointcut::class.java) }
+                ?.find { anode -> anode.desc == ANNOTATION_POINTCUT_DESC }
                 ?: return@forEach
             // 收集 Pointcut 注解的参数
             val params = pointCutAnnotation.params()
