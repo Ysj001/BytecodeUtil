@@ -3,6 +3,7 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 import com.android.build.api.transform.Transform
 import com.ysj.lib.bytecodeutil.api.aspect.*
 import com.ysj.lib.bytecodeutil.modifier.IModifier
+import com.ysj.lib.bytecodeutil.modifier.lock
 import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
@@ -11,6 +12,8 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 import java.util.*
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -112,13 +115,27 @@ class AspectModifier(
     }
 
     override fun modify() {
-        allClassNode.forEach { handlePointcut(it.value) }
+        val old = System.currentTimeMillis()
+        val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+        val latch = CountDownLatch(allClassNode.size)
+        allClassNode.forEach {
+            executor.execute {
+                // 后面内部如果要多线程的修改，只要锁 ClassNode 即可保证安全
+                it.value.lock {
+                    handlePointcut(this)
+                    latch.countDown()
+                }
+            }
+        }
+        latch.await()
+        executor.shutdown()
         // 处理完后释放内存，避免后面的 Modifier 不够
         targetClass.clear()
         targetSuperClass.clear()
         targetInterface.clear()
         targetAnnotation.clear()
         methodProxyProcessor.targetCallStart.clear()
+        logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
     }
 
     /**
