@@ -49,23 +49,23 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     override fun transform(transformInvocation: TransformInvocation) {
         super.transform(transformInvocation)
-        extensions.modifiers?.forEach { modifierManager.addModifier(it as Class<out IModifier>) }
         doTransform(transformInvocation) { context,
                                            inputs,
                                            referencedInputs,
                                            outputProvider,
                                            isIncremental ->
+            extensions.modifiers?.forEach {
+                modifierManager.addModifier(it as Class<out IModifier>, transformInvocation)
+            }
             if (!isIncremental) outputProvider.deleteAll()
             val oldTime = System.currentTimeMillis()
             val dirItems = LinkedList<Pair<File, ProcessItem>>()
             val jarItems = LinkedList<JarProcessItem>()
-            modifierManager.onStart(transformInvocation)
             // 预处理
             inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems, jarItems) }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
             // 正式处理
             process(dirItems, jarItems)
-            modifierManager.onFinished()
         }
     }
 

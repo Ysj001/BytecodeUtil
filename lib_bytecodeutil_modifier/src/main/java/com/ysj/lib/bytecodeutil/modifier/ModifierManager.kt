@@ -14,22 +14,26 @@ class ModifierManager(override val transform: Transform) : IModifier {
 
     override val allClassNode: HashMap<String, ClassNode> by lazy { HashMap() }
 
-    private val modifiers: Collection<IModifier> by lazy { ArrayList() }
-
-    override fun onStart(transformInvocation: TransformInvocation) =
-        modifiers.forEach { it.onStart(transformInvocation) }
+    private val modifiers: MutableCollection<IModifier> by lazy { ArrayList() }
 
     override fun scan(classNode: ClassNode) {
         allClassNode[classNode.name] = classNode
         modifiers.forEach { it.scan(classNode) }
     }
 
-    override fun modify() = modifiers.forEach { it.modify() }
+    override fun modify() {
+        val iterator = modifiers.iterator()
+        while (iterator.hasNext()) {
+            iterator.next().modify()
+            // 用完就移除，节约内存，避免 OOM
+            iterator.remove()
+        }
+    }
 
-    override fun onFinished() = modifiers.forEach { it.onFinished() }
-
-    fun addModifier(modifier: Class<out IModifier>) {
+    fun addModifier(modifier: Class<out IModifier>, transformInvocation: TransformInvocation) {
         val constructor = modifier.getConstructor(Transform::class.java, Map::class.java)
-        (modifiers as ArrayList).add(constructor.newInstance(transform, allClassNode))
+        val element = constructor.newInstance(transform, allClassNode)
+        (modifiers as ArrayList).add(element)
+        element.initialize(transformInvocation)
     }
 }

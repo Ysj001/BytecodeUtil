@@ -132,12 +132,6 @@ class AspectModifier(
         }
         latch.await()
         executor.shutdown()
-        // 处理完后释放内存，避免后面的 Modifier 不够
-        targetClass.clear()
-        targetSuperClass.clear()
-        targetInterface.clear()
-        targetAnnotation.clear()
-        methodProxyProcessor.targetCallStart.clear()
         logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
     }
 

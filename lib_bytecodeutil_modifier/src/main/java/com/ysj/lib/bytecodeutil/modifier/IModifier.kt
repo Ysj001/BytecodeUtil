@@ -18,9 +18,9 @@ interface IModifier {
     val allClassNode: Map<String, ClassNode>
 
     /**
-     * 开始
+     * 初始化
      */
-    fun onStart(transformInvocation: TransformInvocation) = Unit
+    fun initialize(transformInvocation: TransformInvocation) = Unit
 
     /**
      * 扫描类所有需要修改的类，每扫描到一个类会回调一次该方法
@@ -32,8 +32,4 @@ interface IModifier {
      */
     fun modify()
 
-    /**
-     * 结束
-     */
-    fun onFinished() = Unit
 }
