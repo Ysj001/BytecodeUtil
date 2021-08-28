@@ -30,6 +30,14 @@ class AspectModifier(
 
     private val logger = YLogger.getLogger(javaClass)
 
+    private val targetClass by lazy { LinkedList<PointcutBean>() }
+
+    private val targetSuperClass by lazy { LinkedList<PointcutBean>() }
+
+    private val targetInterface by lazy { LinkedList<PointcutBean>() }
+
+    private val targetAnnotation by lazy { LinkedList<PointcutBean>() }
+
     private val methodInnerProcessor by lazy { MethodInnerProcessor(this) }
 
     private val methodProxyProcessor by lazy { MethodProxyProcessor(this) }
@@ -48,10 +56,10 @@ class AspectModifier(
             val target = orgTarget.substringAfter(":")
             val targetType = orgTarget.substringBefore(":")
             val collection = when (targetType) {
-                "class" -> methodInnerProcessor.targetClass
-                "superClass" -> methodInnerProcessor.targetSuperClass
-                "interface" -> methodInnerProcessor.targetInterface
-                "annotation" -> methodInnerProcessor.targetAnnotation
+                "class" -> targetClass
+                "superClass" -> targetSuperClass
+                "interface" -> targetInterface
+                "annotation" -> targetAnnotation
                 else -> throw RuntimeException("${Pointcut::class.java.simpleName} 中 target 前缀不合法：${orgTarget}")
             }
             val pointcutBean = PointcutBean(
@@ -105,6 +113,12 @@ class AspectModifier(
 
     override fun modify() {
         allClassNode.forEach { handlePointcut(it.value) }
+        // 处理完后释放内存，避免后面的 Modifier 不够
+        targetClass.clear()
+        targetSuperClass.clear()
+        targetInterface.clear()
+        targetAnnotation.clear()
+        methodProxyProcessor.targetCallStart.clear()
     }
 
     /**
@@ -155,7 +169,7 @@ class AspectModifier(
      * 处理 [Pointcut] 收集的信息
      */
     private fun handlePointcut(classNode: ClassNode) {
-        val targetClassPointcuts = methodInnerProcessor.findPointcuts(classNode)
+        val targetClassPointcuts = findPointcuts(classNode)
         ArrayList(classNode.methods).forEach { methodNode ->
             methodProxyProcessor.process(classNode, methodNode)
             targetClassPointcuts.forEach targetClass@{ pointcut ->
@@ -164,5 +178,28 @@ class AspectModifier(
                 methodInnerProcessor.process(pointcut, classNode, methodNode)
             }
         }
+    }
+
+    /**
+     * 查找类中所有的切入点
+     */
+    private fun findPointcuts(classNode: ClassNode): ArrayList<PointcutBean> {
+        val pointcuts = ArrayList<PointcutBean>()
+        // 查找类中的
+        targetClass.forEach { if (Pattern.matches(it.target, classNode.name)) pointcuts.add(it) }
+        // 查找父类中的
+        for (it in targetSuperClass) {
+            fun findSuperClass(superName: String?) {
+                superName ?: return
+                if (Pattern.matches(it.target, superName)) pointcuts.add(it)
+                else findSuperClass(allClassNode[superName]?.superName)
+            }
+            findSuperClass(classNode.superName)
+        }
+        // 查找接口中的
+
+        // 查找注解中的
+
+        return pointcuts
     }
 }

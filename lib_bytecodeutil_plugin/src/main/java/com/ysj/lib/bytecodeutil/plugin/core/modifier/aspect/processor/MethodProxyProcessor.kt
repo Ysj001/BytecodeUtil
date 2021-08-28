@@ -17,7 +17,6 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 import java.util.*
 import java.util.regex.Pattern
-import kotlin.collections.HashSet
 
 /**
  * 方法调用代理处理器
@@ -29,7 +28,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     private val logger = YLogger.getLogger(javaClass)
 
-    val targetCallStart by lazy { HashSet<PointcutBean>() }
+    val targetCallStart by lazy { LinkedList<PointcutBean>() }
 
     fun process(classNode: ClassNode, methodNode: MethodNode) {
         val firstNode = methodNode.firstNode ?: return

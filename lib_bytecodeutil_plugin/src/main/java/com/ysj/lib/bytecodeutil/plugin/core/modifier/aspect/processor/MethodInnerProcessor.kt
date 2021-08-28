@@ -9,7 +9,6 @@ import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.PointcutBean
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
-import java.util.regex.Pattern
 
 /**
  * 方法内部修改处理器
@@ -20,14 +19,6 @@ import java.util.regex.Pattern
 class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor(aspectModifier) {
 
     private val logger = YLogger.getLogger(javaClass)
-
-    val targetClass by lazy { HashSet<PointcutBean>() }
-
-    val targetSuperClass by lazy { HashSet<PointcutBean>() }
-
-    val targetInterface by lazy { HashSet<PointcutBean>() }
-
-    val targetAnnotation by lazy { HashSet<PointcutBean>() }
 
     fun process(pointcut: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
         if (pointcut.position != POSITION_RETURN && pointcut.position != POSITION_START) return
@@ -76,26 +67,4 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         logger.info("Method Inner 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
     }
 
-    /**
-     * 查找类中所有的切入点
-     */
-    fun findPointcuts(classNode: ClassNode): ArrayList<PointcutBean> {
-        val pointcuts = ArrayList<PointcutBean>()
-        // 查找类中的
-        targetClass.forEach { if (Pattern.matches(it.target, classNode.name)) pointcuts.add(it) }
-        // 查找父类中的
-        for (it in targetSuperClass) {
-            fun findSuperClass(superName: String?) {
-                superName ?: return
-                if (Pattern.matches(it.target, superName)) pointcuts.add(it)
-                else findSuperClass(aspectModifier.allClassNode[superName]?.superName)
-            }
-            findSuperClass(classNode.superName)
-        }
-        // 查找接口中的
-
-        // 查找注解中的
-
-        return pointcuts
-    }
 }
