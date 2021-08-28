@@ -122,8 +122,11 @@ class AspectModifier(
             executor.execute {
                 // 后面内部如果要多线程的修改，只要锁 ClassNode 即可保证安全
                 it.value.lock {
-                    handlePointcut(this)
-                    latch.countDown()
+                    try {
+                        handlePointcut(this)
+                    } finally {
+                        latch.countDown()
+                    }
                 }
             }
         }
