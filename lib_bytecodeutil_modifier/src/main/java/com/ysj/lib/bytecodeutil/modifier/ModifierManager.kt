@@ -1,6 +1,7 @@
 package com.ysj.lib.bytecodeutil.modifier
 
 import com.android.build.api.transform.Transform
+import com.android.build.api.transform.TransformInvocation
 import org.objectweb.asm.tree.ClassNode
 
 /**
@@ -15,12 +16,17 @@ class ModifierManager(override val transform: Transform) : IModifier {
 
     private val modifiers: Collection<IModifier> by lazy { ArrayList() }
 
+    override fun onStart(transformInvocation: TransformInvocation) =
+        modifiers.forEach { it.onStart(transformInvocation) }
+
     override fun scan(classNode: ClassNode) {
         allClassNode[classNode.name] = classNode
         modifiers.forEach { it.scan(classNode) }
     }
 
     override fun modify() = modifiers.forEach { it.modify() }
+
+    override fun onFinished() = modifiers.forEach { it.onFinished() }
 
     fun addModifier(modifier: Class<out IModifier>) {
         val constructor = modifier.getConstructor(Transform::class.java, Map::class.java)

@@ -1,6 +1,7 @@
 package com.ysj.lib.bytecodeutil.modifier
 
 import com.android.build.api.transform.Transform
+import com.android.build.api.transform.TransformInvocation
 import org.objectweb.asm.tree.ClassNode
 
 /**
@@ -17,12 +18,22 @@ interface IModifier {
     val allClassNode: Map<String, ClassNode>
 
     /**
+     * 开始
+     */
+    fun onStart(transformInvocation: TransformInvocation) = Unit
+
+    /**
      * 扫描类所有需要修改的类，每扫描到一个类会回调一次该方法
      */
     fun scan(classNode: ClassNode)
 
     /**
-     * 开始修改 [scan] 到的类
+     * 开始修改 [scan] 到的类，修改时并发的注意线程安全
      */
     fun modify()
+
+    /**
+     * 结束
+     */
+    fun onFinished() = Unit
 }

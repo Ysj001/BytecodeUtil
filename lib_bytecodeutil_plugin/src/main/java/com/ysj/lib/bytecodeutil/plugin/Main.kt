@@ -1,6 +1,7 @@
 package com.ysj.lib.bytecodeutil.plugin
 
 import com.android.build.gradle.AppExtension
+import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.plugin.core.BytecodeTransform
 import com.ysj.lib.bytecodeutil.plugin.core.BytecodeUtilExtensions
 import org.gradle.api.Plugin
@@ -20,8 +21,12 @@ class Main : Plugin<Project> {
             appExt.registerTransform(transform)
             project.afterEvaluate {
                 transform.extensions = it.extensions.getByType(BytecodeUtilExtensions::class.java)
-                transform.extensions.modifiers?.forEach {m->
-                    project.logger.lifecycle("modifiers --> $m , ${m.methods.size}")
+                val clazz = IModifier::class.java
+                transform.extensions.modifiers?.forEach { m ->
+                    if (!clazz.isAssignableFrom(m)) throw RuntimeException(
+                        "$m 不是 $clazz 的子类"
+                    )
+                    project.logger.lifecycle("append modifier --> $m")
                 }
             }
         }
