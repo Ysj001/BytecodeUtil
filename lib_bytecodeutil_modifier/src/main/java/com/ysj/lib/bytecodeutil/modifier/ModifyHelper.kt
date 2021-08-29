@@ -23,6 +23,20 @@ fun AnnotationNode.params() = HashMap<String, Any>().also {
     }
 }
 
+/** 根据类型获取 Class 的指令 */
+val Type.classInsnNode: AbstractInsnNode
+    get() = when (sort) {
+        Type.BOOLEAN -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Boolean", "TYPE", CLASS_TYPE_DESC)
+        Type.CHAR -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Character", "TYPE", CLASS_TYPE_DESC)
+        Type.BYTE -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Byte", "TYPE", CLASS_TYPE_DESC)
+        Type.SHORT -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Short", "TYPE", CLASS_TYPE_DESC)
+        Type.INT -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Integer", "TYPE", CLASS_TYPE_DESC)
+        Type.FLOAT -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Float", "TYPE", CLASS_TYPE_DESC)
+        Type.LONG -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Long", "TYPE", CLASS_TYPE_DESC)
+        Type.DOUBLE -> FieldInsnNode(Opcodes.GETSTATIC, "java/lang/Double", "TYPE", CLASS_TYPE_DESC)
+        else -> LdcInsnNode(this)
+    }
+
 /** 方法的第一个可用 node */
 val MethodNode.firstNode: AbstractInsnNode?
     get() = if (name == "<init>") {
@@ -160,6 +174,9 @@ val MethodInsnNode.isStatic: Boolean get() = opcode == Opcodes.INVOKESTATIC
 /** 是静态方法则为 true */
 val MethodNode.isStatic: Boolean get() = access and Opcodes.ACC_STATIC != 0
 
+/** 静态 Field 则返回 true */
+val FieldNode.isStatic: Boolean get() = access and Opcodes.ACC_STATIC != 0
+
 /**
  * 获取 load 系列的 opcode
  */
@@ -173,3 +190,6 @@ fun Type.opcodeLoad() = when (sort) {
     Type.DOUBLE -> Opcodes.DLOAD
     else -> Opcodes.ILOAD
 }
+
+val CLASS_TYPE by lazy { Type.getType(Class::class.java) }
+val CLASS_TYPE_DESC by lazy { Type.getType(Class::class.java).descriptor }
