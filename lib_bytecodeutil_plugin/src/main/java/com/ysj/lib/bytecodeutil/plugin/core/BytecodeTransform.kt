@@ -15,6 +15,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.*
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
@@ -122,32 +125,45 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>, jarItems: LinkedList<JarProcessItem>) {
         modifierManager.modify()
+        val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+        var throwable: Throwable? = null
+        val dirLatch = CountDownLatch(dirItems.size)
         dirItems.forEach { pair ->
             val dest = pair.first
             val item = pair.second
-            val cw = ClassWriter(item.classReader, 0)
-            item.classNode.accept(cw)
-            FileOutputStream(dest).use { it.write(cw.toByteArray()) }
+            executor.exec(dirLatch, onError = { throwable = it }) {
+                val cw = ClassWriter(item.classReader, 0)
+                item.classNode.accept(cw)
+                FileOutputStream(dest).use { it.write(cw.toByteArray()) }
+            }
         }
+        dirLatch.await()
+        throwable?.also { executor.shutdownNow();throw it }
+        val jarLatch = CountDownLatch(jarItems.size)
         jarItems.forEach { jpi ->
-            JarFile(jpi.src).use { jf ->
-                JarOutputStream(jpi.dest.outputStream()).use { jos ->
-                    jpi.needs.forEach { need ->
-                        val item = need.second
-                        val cw = ClassWriter(item.classReader, 0)
-                        item.classNode.accept(cw)
-                        jos.putNextEntry(JarEntry(need.first.name))
-                        jos.write(cw.toByteArray())
-                        jos.closeEntry()
-                    }
-                    jpi.notNeeds.forEach { notNeed ->
-                        jos.putNextEntry(JarEntry(notNeed.name))
-                        jos.write(jf.getInputStream(notNeed).readBytes())
-                        jos.closeEntry()
+            executor.exec(jarLatch, onError = { throwable = it }) {
+                JarFile(jpi.src).use { jf ->
+                    JarOutputStream(jpi.dest.outputStream()).use { jos ->
+                        jpi.needs.forEach { need ->
+                            val item = need.second
+                            val cw = ClassWriter(item.classReader, 0)
+                            item.classNode.accept(cw)
+                            jos.putNextEntry(JarEntry(need.first.name))
+                            jos.write(cw.toByteArray())
+                            jos.closeEntry()
+                        }
+                        jpi.notNeeds.forEach { notNeed ->
+                            jos.putNextEntry(JarEntry(notNeed.name))
+                            jos.write(jf.getInputStream(notNeed).readBytes())
+                            jos.closeEntry()
+                        }
                     }
                 }
             }
         }
+        jarLatch.await()
+        executor.shutdownNow()
+        throwable?.also { throw it }
     }
 
     private fun InputStream.visit() = use {
@@ -170,6 +186,17 @@ class BytecodeTransform(private val project: Project) : Transform() {
     private inline fun <T> Enumeration<T>.forEach(block: T.() -> Unit) {
         while (hasMoreElements()) nextElement().block()
     }
+
+    private fun Executor.exec(latch: CountDownLatch, onError: (Throwable) -> Unit, block: () -> Unit) =
+        execute {
+            try {
+                block()
+                latch.countDown()
+            } catch (e: Throwable) {
+                onError(e)
+                while (latch.count > 0) latch.countDown()
+            }
+        }
 
     private inline fun doTransform(
         transformInvocation: TransformInvocation,
