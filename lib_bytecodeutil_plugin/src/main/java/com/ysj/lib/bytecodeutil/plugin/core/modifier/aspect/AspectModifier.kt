@@ -3,7 +3,6 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 import com.android.build.api.transform.Transform
 import com.ysj.lib.bytecodeutil.api.aspect.*
 import com.ysj.lib.bytecodeutil.modifier.IModifier
-import com.ysj.lib.bytecodeutil.modifier.lock
 import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
@@ -116,22 +115,24 @@ class AspectModifier(
 
     override fun modify() {
         val old = System.currentTimeMillis()
+        var throwable: Throwable? = null
         val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {
+            // 注意这里没加锁，内部不要多线程修改
             executor.execute {
-                // 后面内部如果要多线程的修改，只要锁 ClassNode 即可保证安全
-                it.value.lock {
-                    try {
-                        handlePointcut(this)
-                    } finally {
-                        latch.countDown()
-                    }
+                try {
+                    handlePointcut(it.value)
+                    latch.countDown()
+                } catch (e: Throwable) {
+                    throwable = e
+                    while (latch.count > 0) latch.countDown()
                 }
             }
         }
         latch.await()
         executor.shutdown()
+        throwable?.also { throw it }
         logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
     }
 
