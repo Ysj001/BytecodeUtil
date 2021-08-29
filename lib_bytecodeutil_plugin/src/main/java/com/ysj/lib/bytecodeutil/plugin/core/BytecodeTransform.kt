@@ -6,6 +6,7 @@ import com.android.build.gradle.internal.pipeline.TransformManager
 import com.android.utils.FileUtils
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
+import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.ClassReader
@@ -16,7 +17,6 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.*
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -186,17 +186,6 @@ class BytecodeTransform(private val project: Project) : Transform() {
     private inline fun <T> Enumeration<T>.forEach(block: T.() -> Unit) {
         while (hasMoreElements()) nextElement().block()
     }
-
-    private fun Executor.exec(latch: CountDownLatch, onError: (Throwable) -> Unit, block: () -> Unit) =
-        execute {
-            try {
-                block()
-                latch.countDown()
-            } catch (e: Throwable) {
-                onError(e)
-                while (latch.count > 0) latch.countDown()
-            }
-        }
 
     private inline fun doTransform(
         transformInvocation: TransformInvocation,

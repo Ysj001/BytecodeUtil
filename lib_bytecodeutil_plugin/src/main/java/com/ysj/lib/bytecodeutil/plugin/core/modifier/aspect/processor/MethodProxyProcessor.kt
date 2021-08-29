@@ -1,10 +1,7 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
-import com.ysj.lib.bytecodeutil.modifier.cast
-import com.ysj.lib.bytecodeutil.modifier.firstNode
-import com.ysj.lib.bytecodeutil.modifier.isStatic
-import com.ysj.lib.bytecodeutil.modifier.opcodeLoad
+import com.ysj.lib.bytecodeutil.modifier.*
 import com.ysj.lib.bytecodeutil.plugin.core.MD5
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
@@ -105,7 +102,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // JoinPoint
             if (hasJoinPoint) add(VarInsnNode(Opcodes.ALOAD, argsNextIndex))
             // caller
-            add(if (!calling.isStatic) VarInsnNode(Opcodes.ALOAD, 0) else LdcInsnNode(callerType))
+            add(if (!calling.isStatic) VarInsnNode(Opcodes.ALOAD, 0) else callerType.classInsnNode)
             // isStatic
             add(InsnNode(if (calling.isStatic) Opcodes.ICONST_1 else Opcodes.ICONST_0))
             // funName
@@ -136,13 +133,12 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     }
 
     private fun Array<Type>.argTypesArray() = InsnList().apply {
-        val classType = Type.getType(Class::class.java)
         add(IntInsnNode(Opcodes.BIPUSH, size))
-        add(TypeInsnNode(Opcodes.ANEWARRAY, classType.internalName))
+        add(TypeInsnNode(Opcodes.ANEWARRAY, CLASS_TYPE.internalName))
         forEachIndexed { i, t ->
             add(InsnNode(Opcodes.DUP))
             add(IntInsnNode(Opcodes.BIPUSH, i))
-            add(LdcInsnNode(t))
+            add(t.classInsnNode)
             add(InsnNode(Opcodes.AASTORE))
         }
     }

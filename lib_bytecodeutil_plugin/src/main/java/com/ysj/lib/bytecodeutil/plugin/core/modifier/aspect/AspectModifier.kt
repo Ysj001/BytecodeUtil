@@ -3,6 +3,7 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 import com.android.build.api.transform.Transform
 import com.ysj.lib.bytecodeutil.api.aspect.*
 import com.ysj.lib.bytecodeutil.modifier.IModifier
+import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
@@ -120,14 +121,8 @@ class AspectModifier(
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {
             // 注意这里没加锁，内部不要多线程修改
-            executor.execute {
-                try {
-                    handlePointcut(it.value)
-                    latch.countDown()
-                } catch (e: Throwable) {
-                    throwable = e
-                    while (latch.count > 0) latch.countDown()
-                }
+            executor.exec(latch, onError = { throwable = it }) {
+                handlePointcut(it.value)
             }
         }
         latch.await()
