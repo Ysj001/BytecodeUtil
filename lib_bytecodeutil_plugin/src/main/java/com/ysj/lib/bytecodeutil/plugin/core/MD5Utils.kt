@@ -1,6 +1,5 @@
 package com.ysj.lib.bytecodeutil.plugin.core
 
-import java.math.BigInteger
 import java.security.MessageDigest
 
 /*
@@ -12,4 +11,9 @@ import java.security.MessageDigest
 
 val String.MD5: String get() = toByteArray().MD5
 
-val ByteArray.MD5: String get() = BigInteger(MessageDigest.getInstance("md5").digest(this)).toString(16)
+val ByteArray.MD5: String
+    get() = MessageDigest.getInstance("md5").digest(this).let { array ->
+        val sb = StringBuilder()
+        array.forEach { sb.append(String.format("%02x", it)); }
+        sb.toString()
+    }
