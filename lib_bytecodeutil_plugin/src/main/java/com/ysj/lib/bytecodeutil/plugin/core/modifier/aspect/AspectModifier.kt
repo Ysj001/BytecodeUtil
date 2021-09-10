@@ -59,10 +59,10 @@ class AspectModifier(
             val target = orgTarget.substringAfter(":")
             val targetType = orgTarget.substringBefore(":")
             val collection = when (targetType) {
-                "class" -> targetClass
-                "superClass" -> targetSuperClass
-                "interface" -> targetInterface
-                "annotation" -> targetAnnotation
+                PointcutBean.TARGET_CLASS -> targetClass
+                PointcutBean.TARGET_SUPER_CLASS -> targetSuperClass
+                PointcutBean.TARGET_INTERFACE -> targetInterface
+                PointcutBean.TARGET_ANNOTATION -> targetAnnotation
                 else -> throw RuntimeException("${Pointcut::class.java.simpleName} 中 target 前缀不合法：${orgTarget}")
             }
             val pointcutBean = PointcutBean(

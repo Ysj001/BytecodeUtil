@@ -27,6 +27,13 @@ class PointcutBean(
     val position: Int,
 ) : Serializable {
 
+    companion object {
+        const val TARGET_CLASS = "class"
+        const val TARGET_SUPER_CLASS = "superClass"
+        const val TARGET_INTERFACE = "interface"
+        const val TARGET_ANNOTATION = "annotation"
+    }
+
     /** 切面方法的参数 */
     val aspectFunArgs: Array<Type> = Type.getArgumentTypes(aspectFunDesc)
 
