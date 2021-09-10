@@ -1,7 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.AnnotationNode
 import java.io.Serializable
 
 /**
@@ -21,9 +20,9 @@ class PointcutBean(
     /** 切入点类型（class，superClass，interface，annotation） */
     val targetType: String,
     /** 切入点方法名和描述 */
-    var funName: String,
+    val funName: String,
     /** 切入点方法描述 */
-    var funDesc: String,
+    val funDesc: String,
     /** 切入方法的执行位置 */
     val position: Int,
 ) : Serializable {
@@ -34,8 +33,6 @@ class PointcutBean(
         const val TARGET_INTERFACE = "interface"
         const val TARGET_ANNOTATION = "annotation"
     }
-
-    val annotations by lazy { HashMap<AnnotationNode, Map<String, Any?>>() }
 
     /** 切面方法的参数 */
     val aspectFunArgs: Array<Type> = Type.getArgumentTypes(aspectFunDesc)

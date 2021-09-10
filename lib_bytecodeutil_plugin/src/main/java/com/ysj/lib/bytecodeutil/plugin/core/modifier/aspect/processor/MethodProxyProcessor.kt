@@ -34,8 +34,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         insnNodes.forEach node@{ node ->
             if (node !is MethodInsnNode) return@node
             pointcutBean.takeIf {
-                (it.targetType == PointcutBean.TARGET_ANNOTATION && it.funName == node.name && it.funDesc == node.desc)
-                        || Pattern.matches(it.target, node.owner)
+                isAnnotationTarget(it, node) || Pattern.matches(it.target, node.owner)
                         && Pattern.matches(it.funName, node.name)
                         && Pattern.matches(it.funDesc, node.desc)
             } ?: return@node
@@ -172,4 +171,14 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     }
 
     private fun MethodInsnNode.proxyName(): String = "bcu_proxy_${name}_${"$owner$name$desc".MD5}"
+
+    private fun isAnnotationTarget(pointcutBean: PointcutBean, node: MethodInsnNode): Boolean {
+        if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
+        val classNode = aspectModifier.allClassNode[node.owner] ?: return false
+        val predicate: (AnnotationNode) -> Boolean = { Pattern.matches(pointcutBean.target, it.desc) }
+        val methodNode = classNode.methods
+            .find { it.visibleAnnotations?.find(predicate) != null || it.invisibleAnnotations?.find(predicate) != null }
+            ?: return false
+        return methodNode.name == node.name && methodNode.desc == node.desc
+    }
 }

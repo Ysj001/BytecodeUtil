@@ -176,8 +176,9 @@ class AspectModifier(
      * 处理 [Pointcut] 收集的信息
      */
     private fun handlePointcut(classNode: ClassNode) {
+        val methods = ArrayList(classNode.methods)
         findPointcuts(classNode) { pointcut ->
-            ArrayList(classNode.methods).forEach { methodNode ->
+            methods.forEach { methodNode ->
                 methodProxyProcessor.process(pointcut, classNode, methodNode)
                 if (pointcut.targetType == PointcutBean.TARGET_ANNOTATION) {
                     if (pointcut.funName != methodNode.name) return@forEach
@@ -209,23 +210,14 @@ class AspectModifier(
         // todo 查找接口中的
 
         // 查找注解中的
-        val methods = ArrayList(classNode.methods)
-        targetAnnotation.forEach { pb ->
-            methods.forEach { mn ->
-                mn.visibleAnnotations?.forEach ann@{
-                    if (!Pattern.matches(pb.target, it.desc)) return@ann
-                    pb.funName = mn.name
-                    pb.funDesc = mn.desc
-                    pb.annotations[it] = it.params()
+        ArrayList(classNode.methods).forEach { mn ->
+            targetAnnotation.forEach pb@{ pb ->
+                if (pb.position == POSITION_CALL) {
                     block(pb)
+                    return@pb
                 }
-                mn.invisibleAnnotations?.forEach ann@{
-                    if (!Pattern.matches(pb.target, it.desc)) return@ann
-                    pb.funName = mn.name
-                    pb.funDesc = mn.desc
-                    pb.annotations[it] = it.params()
-                    block(pb)
-                }
+                mn.visibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb) }
+                mn.invisibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb) }
             }
         }
     }
