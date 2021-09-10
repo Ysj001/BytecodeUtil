@@ -106,10 +106,7 @@ class AspectModifier(
                     }
                 }
             }
-            when (pointcutBean.position) {
-                POSITION_START, POSITION_RETURN -> collection.add(pointcutBean)
-                POSITION_CALL -> methodProxyProcessor.targetCallStart.add(pointcutBean)
-            }
+            collection.add(pointcutBean)
         }
         handleAspect(classNode)
     }
@@ -179,12 +176,16 @@ class AspectModifier(
      * 处理 [Pointcut] 收集的信息
      */
     private fun handlePointcut(classNode: ClassNode) {
-        val targetClassPointcuts = findPointcuts(classNode)
-        ArrayList(classNode.methods).forEach { methodNode ->
-            methodProxyProcessor.process(classNode, methodNode)
-            targetClassPointcuts.forEach targetClass@{ pointcut ->
-                if (!Pattern.matches(pointcut.funName, methodNode.name)) return@targetClass
-                if (!Pattern.matches(pointcut.funDesc, methodNode.desc)) return@targetClass
+        findPointcuts(classNode) { pointcut ->
+            ArrayList(classNode.methods).forEach { methodNode ->
+                methodProxyProcessor.process(pointcut, classNode, methodNode)
+                if (pointcut.targetType == PointcutBean.TARGET_ANNOTATION) {
+                    if (pointcut.funName != methodNode.name) return@forEach
+                    if (pointcut.funDesc != methodNode.desc) return@forEach
+                } else {
+                    if (!Pattern.matches(pointcut.funName, methodNode.name)) return@forEach
+                    if (!Pattern.matches(pointcut.funDesc, methodNode.desc)) return@forEach
+                }
                 methodInnerProcessor.process(pointcut, classNode, methodNode)
             }
         }
@@ -193,23 +194,39 @@ class AspectModifier(
     /**
      * 查找类中所有的切入点
      */
-    private fun findPointcuts(classNode: ClassNode): ArrayList<PointcutBean> {
-        val pointcuts = ArrayList<PointcutBean>()
+    private fun findPointcuts(classNode: ClassNode, block: (PointcutBean) -> Unit) {
         // 查找类中的
-        targetClass.forEach { if (Pattern.matches(it.target, classNode.name)) pointcuts.add(it) }
+        targetClass.forEach { if (it.position == POSITION_CALL || Pattern.matches(it.target, classNode.name)) block(it) }
         // 查找父类中的
         for (it in targetSuperClass) {
             fun findSuperClass(superName: String?) {
                 superName ?: return
-                if (Pattern.matches(it.target, superName)) pointcuts.add(it)
+                if (it.position == POSITION_CALL || Pattern.matches(it.target, superName)) block(it)
                 else findSuperClass(allClassNode[superName]?.superName)
             }
             findSuperClass(classNode.superName)
         }
-        // 查找接口中的
+        // todo 查找接口中的
 
         // 查找注解中的
-
-        return pointcuts
+        val methods = ArrayList(classNode.methods)
+        targetAnnotation.forEach { pb ->
+            methods.forEach { mn ->
+                mn.visibleAnnotations?.forEach ann@{
+                    if (!Pattern.matches(pb.target, it.desc)) return@ann
+                    pb.funName = mn.name
+                    pb.funDesc = mn.desc
+                    pb.annotations[it] = it.params()
+                    block(pb)
+                }
+                mn.invisibleAnnotations?.forEach ann@{
+                    if (!Pattern.matches(pb.target, it.desc)) return@ann
+                    pb.funName = mn.name
+                    pb.funDesc = mn.desc
+                    pb.annotations[it] = it.params()
+                    block(pb)
+                }
+            }
+        }
     }
 }

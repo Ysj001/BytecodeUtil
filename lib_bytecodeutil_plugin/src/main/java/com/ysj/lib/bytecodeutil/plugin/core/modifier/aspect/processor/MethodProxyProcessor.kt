@@ -1,6 +1,7 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
+import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
 import com.ysj.lib.bytecodeutil.modifier.*
 import com.ysj.lib.bytecodeutil.plugin.core.MD5
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
@@ -25,16 +26,16 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     private val logger = YLogger.getLogger(javaClass)
 
-    val targetCallStart by lazy { LinkedList<PointcutBean>() }
-
-    fun process(classNode: ClassNode, methodNode: MethodNode) {
+    fun process(pointcutBean: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
+        if (pointcutBean.position != POSITION_CALL) return
         val firstNode = methodNode.firstNode ?: return
         val insnList = methodNode.instructions
         val insnNodes = insnList.toArray()
         insnNodes.forEach node@{ node ->
             if (node !is MethodInsnNode) return@node
-            val pointcutBean = targetCallStart.find {
-                Pattern.matches(it.target, node.owner)
+            pointcutBean.takeIf {
+                (it.targetType == PointcutBean.TARGET_ANNOTATION && it.funName == node.name && it.funDesc == node.desc)
+                        || Pattern.matches(it.target, node.owner)
                         && Pattern.matches(it.funName, node.name)
                         && Pattern.matches(it.funDesc, node.desc)
             } ?: return@node
