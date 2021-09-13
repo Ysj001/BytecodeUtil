@@ -24,6 +24,11 @@ import java.util.regex.Pattern
  */
 class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor(aspectModifier) {
 
+    companion object {
+        /** 代理方法的前缀 */
+        const val PREFIX_PROXY_METHOD = "bcu_proxy_"
+    }
+
     private val logger = YLogger.getLogger(javaClass)
 
     fun process(pointcutBean: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
@@ -71,8 +76,18 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
      * ```
      */
     private fun ClassNode.generateProxyMethod(pointcut: PointcutBean, calling: MethodInsnNode, hasJoinPoint: Boolean): MethodNode {
-        val proxyName = calling.proxyName()
-        val find = methods.find { it.access == Opcodes.ACC_STATIC && name == proxyName }
+        val proxyName = "${calling.owner}${calling.name}${calling.desc}".MD5
+        var find: MethodNode? = null
+        // 代理方法都添加到了 methods 的后面，从后面查比较快
+        for (i in methods.lastIndex..0) {
+            val method = methods[i]
+            // 代理方法都有前缀，没有前缀说明没生成过直接 break
+            if (!method.name.startsWith(PREFIX_PROXY_METHOD)) break
+            if (method.name.endsWith(proxyName)) {
+                find = method
+                break
+            }
+        }
         if (find != null) return find
         val callerType = Type.getObjectType(calling.owner)
         val callerDesc = if (calling.isStatic) "" else callerType.descriptor
@@ -84,7 +99,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         val joinPointDesc = if (hasJoinPoint) joinPointType.descriptor else ""
         val method = MethodNode(
             Opcodes.ACC_STATIC,
-            proxyName,
+            "$PREFIX_PROXY_METHOD$proxyName",
             "($callerDesc$argsDesc$joinPointDesc)${returnType.descriptor}",
             null,
             null
@@ -170,7 +185,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         }
     }
 
-    private fun MethodInsnNode.proxyName(): String = "bcu_proxy_${name}_${"$owner$name$desc".MD5}"
+    private fun MethodInsnNode.proxyName(): String = "$PREFIX_PROXY_METHOD${"$owner$name$desc".MD5}"
 
     private fun isAnnotationTarget(pointcutBean: PointcutBean, node: MethodInsnNode): Boolean {
         if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
