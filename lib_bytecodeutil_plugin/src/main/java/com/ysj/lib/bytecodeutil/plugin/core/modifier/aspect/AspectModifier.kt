@@ -176,48 +176,61 @@ class AspectModifier(
      * 处理 [Pointcut] 收集的信息
      */
     private fun handlePointcut(classNode: ClassNode) {
-        val methods = ArrayList(classNode.methods)
-        findPointcuts(classNode) { pointcut ->
-            methods.forEach { methodNode ->
-                methodProxyProcessor.process(pointcut, classNode, methodNode)
-                if (pointcut.targetType == PointcutBean.TARGET_ANNOTATION) {
-                    if (pointcut.funName != methodNode.name) return@forEach
-                    if (pointcut.funDesc != methodNode.desc) return@forEach
-                } else {
-                    if (!Pattern.matches(pointcut.funName, methodNode.name)) return@forEach
-                    if (!Pattern.matches(pointcut.funDesc, methodNode.desc)) return@forEach
-                }
-                methodInnerProcessor.process(pointcut, classNode, methodNode)
-            }
+        findPointcuts(classNode) { pointcut, methodNode ->
+            methodProxyProcessor.process(pointcut, classNode, methodNode)
+            methodInnerProcessor.process(pointcut, classNode, methodNode)
         }
     }
 
     /**
      * 查找类中所有的切入点
      */
-    private fun findPointcuts(classNode: ClassNode, block: (PointcutBean) -> Unit) {
-        // 查找类中的
-        targetClass.forEach { if (it.position == POSITION_CALL || Pattern.matches(it.target, classNode.name)) block(it) }
-        // 查找父类中的
-        for (it in targetSuperClass) {
-            fun findSuperClass(superName: String?) {
-                superName ?: return
-                if (it.position == POSITION_CALL || Pattern.matches(it.target, superName)) block(it)
-                else findSuperClass(allClassNode[superName]?.superName)
-            }
-            findSuperClass(classNode.superName)
-        }
-        // todo 查找接口中的
-
-        // 查找注解中的
+    private fun findPointcuts(classNode: ClassNode, block: (PointcutBean, MethodNode) -> Unit) {
         ArrayList(classNode.methods).forEach { mn ->
+            // 查找类中的
+            targetClass.forEach target@{
+                if (it.position == POSITION_CALL) block(it, mn)
+                else {
+                    if (!Pattern.matches(it.target, classNode.name)) return@target
+                    if (!Pattern.matches(it.funName, mn.name)) return@target
+                    if (!Pattern.matches(it.funDesc, mn.desc)) return@target
+                    block(it, mn)
+                }
+            }
+            // 查找父类中的
+            for (it in targetSuperClass) {
+                fun findSuperClass(superName: String?) {
+                    superName ?: return
+                    if (it.position == POSITION_CALL) block(it, mn)
+                    else {
+                        if (!Pattern.matches(it.target, classNode.name)) findSuperClass(allClassNode[superName]?.superName)
+                        if (!Pattern.matches(it.funName, mn.name)) findSuperClass(allClassNode[superName]?.superName)
+                        if (!Pattern.matches(it.funDesc, mn.desc)) findSuperClass(allClassNode[superName]?.superName)
+                        block(it, mn)
+                    }
+                }
+                findSuperClass(classNode.superName)
+            }
+            // todo 查找接口中的
+
+            // 查找注解中的
             targetAnnotation.forEach pb@{ pb ->
                 if (pb.position == POSITION_CALL) {
-                    block(pb)
+                    block(pb, mn)
                     return@pb
                 }
-                mn.visibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb) }
-                mn.invisibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb) }
+                mn.visibleAnnotations?.forEach {
+                    if (!Pattern.matches(pb.target, it.desc)) return@pb
+                    if (pb.funName != mn.name) return@pb
+                    if (pb.funDesc != mn.desc) return@pb
+                    block(pb, mn)
+                }
+                mn.invisibleAnnotations?.forEach {
+                    if (Pattern.matches(pb.target, it.desc)) return@pb
+                    if (pb.funName != mn.name) return@pb
+                    if (pb.funDesc != mn.desc) return@pb
+                    block(pb, mn)
+                }
             }
         }
     }
