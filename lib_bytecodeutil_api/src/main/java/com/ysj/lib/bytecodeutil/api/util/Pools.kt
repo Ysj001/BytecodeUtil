@@ -1,5 +1,11 @@
 package com.ysj.lib.bytecodeutil.api.util
 
+/** 空对象 */
+val EMPTY_OBJ = Any()
+
+/** 空数组 */
+val EMPTY_ARRAY: Array<Any?> = emptyArray()
+
 /**
  * Interface for managing a pool of objects.
  *

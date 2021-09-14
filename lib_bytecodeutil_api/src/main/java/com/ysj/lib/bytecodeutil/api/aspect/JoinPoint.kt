@@ -1,5 +1,6 @@
 package com.ysj.lib.bytecodeutil.api.aspect
 
+import com.ysj.lib.bytecodeutil.api.util.EMPTY_ARRAY
 import com.ysj.lib.bytecodeutil.api.util.SynchronizedPool
 import java.io.Serializable
 import java.util.concurrent.ConcurrentHashMap
@@ -31,8 +32,7 @@ class JoinPoint private constructor(
         fun remove(key: String) {
             STORE.remove("${Thread.currentThread().id}-$key")?.run {
                 target = null
-                val args = args
-                for (i in 0..args.lastIndex) args[i] = null
+                args = EMPTY_ARRAY
                 sPool.recycle(this)
             }
         }

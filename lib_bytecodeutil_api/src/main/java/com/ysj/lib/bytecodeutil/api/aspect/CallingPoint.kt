@@ -1,5 +1,7 @@
 package com.ysj.lib.bytecodeutil.api.aspect
 
+import com.ysj.lib.bytecodeutil.api.util.EMPTY_ARRAY
+import com.ysj.lib.bytecodeutil.api.util.EMPTY_OBJ
 import com.ysj.lib.bytecodeutil.api.util.LruCache
 import java.io.Serializable
 import java.lang.reflect.Method
@@ -20,8 +22,6 @@ class CallingPoint private constructor(
 ) : Serializable {
 
     companion object {
-        private val DEFAULT_CALLER = Any()
-
         private val CACHE = LruCache.sync<Int, CallingPoint>()
 
         @JvmStatic
@@ -35,7 +35,7 @@ class CallingPoint private constructor(
             var cacheKey = hashCode()
             cacheKey = 31 * cacheKey + isStatic.hashCode()
             cacheKey = 31 * cacheKey + funName.hashCode()
-            cacheKey = 31 * cacheKey + parameterTypes.contentDeepHashCode()
+            cacheKey = 31 * cacheKey + parameterTypes.contentHashCode()
             CACHE[cacheKey]?.let {
                 val method = it.method
                 if (funName != method.name || !method.parameterTypes.contentEquals(parameterTypes)) null
@@ -74,7 +74,7 @@ class CallingPoint private constructor(
      * 释放引用。会自动调用，不用手动调
      */
     fun release() {
-        caller = DEFAULT_CALLER
-        for (i in 0..args.lastIndex) args[i] = null
+        caller = EMPTY_OBJ
+        args = EMPTY_ARRAY
     }
 }
