@@ -78,7 +78,10 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
      * 在指定类中生成代理方法
      * ```
      * static {returnType} {proxyMethodName}(caller, ...args, JoinPoint) {
-     *     return ({returnType}){AspectClass}.instance.{aspectFun}(JoinPoint, CallingPoint.newInstance(caller, isStatic, funName, new Class[]{...argTypes}, new Object[]{...args}));
+     *     CallingPoint callingPoint = CallingPoint.newInstance(caller, isStatic, funName, new Class[]{...argTypes}, new Object[]{...args});
+     *     {returnType} result = ({returnType}){AspectClass}.instance.{aspectFun}(JoinPoint, callingPoint);
+     *     cp.release();
+     *     return result;
      * }
      * ```
      */
@@ -86,7 +89,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         val proxyName = "${calling.owner}${calling.name}${calling.desc}".MD5
         var find: MethodNode? = null
         // 代理方法都添加到了 methods 的后面，从后面查比较快
-        for (i in methods.lastIndex..0) {
+        for (i in methods.lastIndex downTo 0) {
             val method = methods[i]
             // 代理方法都有前缀，没有前缀说明没生成过直接 break
             if (!method.name.startsWith(PREFIX_PROXY_METHOD)) break
@@ -112,17 +115,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             null
         )
         method.instructions.apply {
-            // {AspectClass}.instance
-            add(FieldInsnNode(
-                Opcodes.GETSTATIC,
-                pointcut.aspectClassName,
-                "instance",
-                Type.getObjectType(pointcut.aspectClassName).descriptor
-            ))
             // caller, ...args 的下一个参数的索引
             val argsNextIndex = args.size + if (calling.isStatic) 0 else 1
-            // JoinPoint
-            if (hasJoinPoint) add(VarInsnNode(Opcodes.ALOAD, argsNextIndex))
             // caller
             add(if (!calling.isStatic) VarInsnNode(Opcodes.ALOAD, 0) else callerType.classInsnNode)
             // isStatic
@@ -140,6 +134,18 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                 "(Ljava/lang/Object;ZLjava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)${callingPointType.descriptor}",
                 false
             ))
+            add(VarInsnNode(Opcodes.ASTORE, argsNextIndex + 1))
+            // {AspectClass}.instance
+            add(FieldInsnNode(
+                Opcodes.GETSTATIC,
+                pointcut.aspectClassName,
+                "instance",
+                Type.getObjectType(pointcut.aspectClassName).descriptor
+            ))
+            // joinPoint
+            if (hasJoinPoint) add(VarInsnNode(Opcodes.ALOAD, argsNextIndex))
+            // callingPoint
+            add(VarInsnNode(Opcodes.ALOAD, argsNextIndex + 1))
             add(MethodInsnNode(
                 Opcodes.INVOKEVIRTUAL,
                 pointcut.aspectClassName,
