@@ -219,18 +219,8 @@ class AspectModifier(
                     block(pb, mn)
                     return@pb
                 }
-                mn.visibleAnnotations?.forEach {
-                    if (!Pattern.matches(pb.target, it.desc)) return@pb
-                    if (pb.funName != mn.name) return@pb
-                    if (pb.funDesc != mn.desc) return@pb
-                    block(pb, mn)
-                }
-                mn.invisibleAnnotations?.forEach {
-                    if (Pattern.matches(pb.target, it.desc)) return@pb
-                    if (pb.funName != mn.name) return@pb
-                    if (pb.funDesc != mn.desc) return@pb
-                    block(pb, mn)
-                }
+                mn.visibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb, mn) }
+                mn.invisibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb, mn) }
             }
         }
     }
