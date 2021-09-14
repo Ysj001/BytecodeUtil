@@ -3,7 +3,6 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.modifier.argsInsnList
 import com.ysj.lib.bytecodeutil.modifier.isStatic
-import com.ysj.lib.bytecodeutil.modifier.newObject
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointType
 import org.objectweb.asm.Opcodes
@@ -42,24 +41,17 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
 
     /**
      * 生成 [JoinPoint] 并缓存起来
-     * JointPoint.put("{className}-{methodName}{methodDesc}", new JointPoint(this, args));
+     * JointPoint.put("{className}-{methodName}{methodDesc}", this, args);
      */
     fun storeJoinPoint(classNode: ClassNode, methodNode: MethodNode): InsnList = InsnList().apply {
         add(LdcInsnNode("${classNode.name}-${methodNode.name}${methodNode.desc}"))
-        add(newObject(
-            JoinPoint::class.java,
-            linkedMapOf(
-                Any::class.java to InsnList().apply {
-                    add(if (methodNode.isStatic) InsnNode(Opcodes.ACONST_NULL) else VarInsnNode(Opcodes.ALOAD, 0))
-                },
-                Array<Any?>::class.java to methodNode.argsInsnList().apply { remove(last) },
-            )
-        ))
+        add(if (methodNode.isStatic) InsnNode(Opcodes.ACONST_NULL) else VarInsnNode(Opcodes.ALOAD, 0))
+        add(methodNode.argsInsnList()).apply { remove(last) }
         add(MethodInsnNode(
             Opcodes.INVOKESTATIC,
             joinPointType.internalName,
             "put",
-            "(Ljava/lang/String;${joinPointType.descriptor})V",
+            "(Ljava/lang/String;Ljava/lang/Object;[Ljava/lang/Object;)V",
             false
         ))
     }
