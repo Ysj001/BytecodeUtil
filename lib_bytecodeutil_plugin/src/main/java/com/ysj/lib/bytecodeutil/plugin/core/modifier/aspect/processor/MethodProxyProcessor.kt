@@ -31,6 +31,9 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     private val logger = YLogger.getLogger(javaClass)
 
+    // 记录代理替换的节点。key：代理的节点 value：源节点
+    private val recordProxyNode by lazy { HashMap<MethodInsnNode, MethodInsnNode>() }
+
     fun process(pointcutBean: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
         if (pointcutBean.position != POSITION_CALL) return
         val firstNode = methodNode.firstNode ?: return
@@ -38,10 +41,12 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         val insnNodes = insnList.toArray()
         insnNodes.forEach node@{ node ->
             if (node !is MethodInsnNode) return@node
+            val proxy = recordProxyNode[node]
+            val realNode = proxy ?: node
             pointcutBean.takeIf {
-                isAnnotationTarget(it, node) || Pattern.matches(it.target, node.owner)
-                        && Pattern.matches(it.funName, node.name)
-                        && Pattern.matches(it.funDesc, node.desc)
+                isAnnotationTarget(it, realNode) || Pattern.matches(it.target, realNode.owner)
+                        && Pattern.matches(it.funName, realNode.name)
+                        && Pattern.matches(it.funDesc, realNode.desc)
             } ?: return@node
             // 切面方法的参数
             val aspectFunArgs = pointcutBean.aspectFunArgs
@@ -54,6 +59,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // 把源调用替换成代理调用
             insnList.insertBefore(node, proxyNode)
             insnList.remove(node)
+            if (proxy != null) recordProxyNode.remove(proxy)
+            recordProxyNode[proxyNode] = realNode
             // 插入参数
             if (hasJoinPoint) insnList.insertBefore(proxyNode, getJoinPoint(classNode, methodNode))
             logger.info("Method Call 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
