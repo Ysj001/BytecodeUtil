@@ -154,6 +154,21 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                 false
             ))
             add(cast(Type.getReturnType(pointcut.aspectFunDesc), returnType))
+            if (returnType.sort != Type.METHOD && returnType.sort != Type.VOID) {
+                add(VarInsnNode(returnType.getOpcode(Opcodes.ISTORE), argsNextIndex + 2))
+            }
+            // callingPoint.release()
+            add(VarInsnNode(Opcodes.ALOAD, argsNextIndex + 1))
+            add(MethodInsnNode(
+                Opcodes.INVOKEVIRTUAL,
+                callingPointType.internalName,
+                "release",
+                "()V",
+                false
+            ))
+            if (returnType.sort != Type.METHOD && returnType.sort != Type.VOID) {
+                add(VarInsnNode(returnType.getOpcode(Opcodes.ILOAD), argsNextIndex + 2))
+            }
             add(InsnNode(returnType.getOpcode(Opcodes.IRETURN)))
         }
         methods.add(method)
