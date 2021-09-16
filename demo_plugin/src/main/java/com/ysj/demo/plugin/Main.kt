@@ -12,7 +12,7 @@ import org.gradle.api.Project
 class Main : Plugin<Project> {
 
     override fun apply(target: Project) {
-
+        println("不用 apply 我，可以挂在到 bytecodeutil-plugin 上")
     }
 
 }
