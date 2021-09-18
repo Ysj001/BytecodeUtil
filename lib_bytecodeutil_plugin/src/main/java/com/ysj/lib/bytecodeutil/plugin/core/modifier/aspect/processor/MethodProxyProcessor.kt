@@ -72,7 +72,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
      * static {returnType} {proxyMethodName}(caller, ...args, JoinPoint) {
      *     CallingPoint callingPoint = CallingPoint.newInstance(caller, isStatic, funName, new Class[]{...argTypes}, new Object[]{...args});
      *     {returnType} result = ({returnType}){AspectClass}.instance.{aspectFun}(JoinPoint, callingPoint);
-     *     cp.release();
+     *     callingPoint.orgCallingPoint = CallingPoint.newInstance(orgCallingPointParams);
+     *     callingPoint.release();
      *     return result;
      * }
      * ```
@@ -112,6 +113,17 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // CallingPoint callingPoint = CallingPoint.newInstance(xxx);
             createCallingPoint(calling, callerType, args)
             add(VarInsnNode(Opcodes.ASTORE, argsNextIndex + 1))
+            // callingPoint.orgCallingPoint = CallingPoint.newInstance(orgCallingPointParams);
+            recordProxyNode[calling]?.also {
+                add(VarInsnNode(Opcodes.ALOAD, argsNextIndex + 1))
+                createCallingPoint(it, Type.getObjectType(it.owner), args.sliceArray(1..args.lastIndex))
+                add(FieldInsnNode(
+                    Opcodes.PUTFIELD,
+                    callingPointInternalName,
+                    "orgCallingPoint",
+                    callingPointDesc
+                ))
+            }
             // {AspectClass}.instance
             add(FieldInsnNode(
                 Opcodes.GETSTATIC,
