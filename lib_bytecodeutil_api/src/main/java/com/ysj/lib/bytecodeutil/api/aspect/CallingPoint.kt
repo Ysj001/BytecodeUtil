@@ -22,7 +22,13 @@ class CallingPoint private constructor(
 ) : Serializable {
 
     companion object {
-        private val CACHE = LruCache.sync<Int, CallingPoint>()
+        /** 最大缓存大小，注意只有使用前设置有效 */
+        @Volatile
+        var MAX_CACHE_SIZE = 16
+
+        private val sThreadLocal = object : ThreadLocal<LruCache<Int, CallingPoint>>() {
+            override fun initialValue() = LruCache<Int, CallingPoint>(MAX_CACHE_SIZE)
+        }
 
         @JvmStatic
         fun newInstance(
@@ -32,11 +38,13 @@ class CallingPoint private constructor(
             parameterTypes: Array<Class<*>>,
             args: Array<Any?>,
         ): CallingPoint = (if (isStatic) caller as Class<*> else caller.javaClass).run {
+            ThreadLocal<String>()
             var cacheKey = hashCode()
             cacheKey = 31 * cacheKey + isStatic.hashCode()
             cacheKey = 31 * cacheKey + funName.hashCode()
             cacheKey = 31 * cacheKey + parameterTypes.contentHashCode()
-            CACHE[cacheKey]?.let {
+            val cache = sThreadLocal.get()
+            cache[cacheKey]?.let {
                 val method = it.method
                 if (funName != method.name || !method.parameterTypes.contentEquals(parameterTypes)) null
                 else {
@@ -53,7 +61,7 @@ class CallingPoint private constructor(
                     getDeclaredMethod(funName, *parameterTypes).apply { isAccessible = true }
                 },
                 args
-            ).also { CACHE[cacheKey] = it }
+            ).also { cache[cacheKey] = it }
         }
     }
 
