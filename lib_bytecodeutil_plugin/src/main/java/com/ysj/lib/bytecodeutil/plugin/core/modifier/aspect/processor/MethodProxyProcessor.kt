@@ -213,8 +213,6 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         }
     }
 
-    private fun MethodInsnNode.proxyName(): String = "$PREFIX_PROXY_METHOD${"$owner$name$desc".MD5}"
-
     private fun isAnnotationTarget(pointcutBean: PointcutBean, node: MethodInsnNode): Boolean {
         if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
         val classNode = aspectModifier.allClassNode[node.owner] ?: return false
