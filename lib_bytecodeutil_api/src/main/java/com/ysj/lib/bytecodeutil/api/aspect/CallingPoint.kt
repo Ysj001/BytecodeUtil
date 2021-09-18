@@ -38,7 +38,6 @@ class CallingPoint private constructor(
             parameterTypes: Array<Class<*>>,
             args: Array<Any?>,
         ): CallingPoint = (if (isStatic) caller as Class<*> else caller.javaClass).run {
-            ThreadLocal<String>()
             var cacheKey = hashCode()
             cacheKey = 31 * cacheKey + isStatic.hashCode()
             cacheKey = 31 * cacheKey + funName.hashCode()
