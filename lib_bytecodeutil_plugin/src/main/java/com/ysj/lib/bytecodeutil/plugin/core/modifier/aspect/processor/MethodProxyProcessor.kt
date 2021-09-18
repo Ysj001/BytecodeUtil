@@ -98,7 +98,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             substring(1 until lastIndex).replace(", ", "")
         }
         val returnType = Type.getReturnType(calling.desc)
-        val joinPointDesc = if (hasJoinPoint) joinPointType.descriptor else ""
+        val joinPointDesc = if (hasJoinPoint) joinPointDesc else ""
         val method = MethodNode(
             Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC or Opcodes.ACC_SYNTHETIC,
             "$PREFIX_PROXY_METHOD$proxyName",
@@ -121,9 +121,9 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             add(args.argsArray(if (calling.isStatic) 0 else 1))
             add(MethodInsnNode(
                 Opcodes.INVOKESTATIC,
-                callingPointType.internalName,
+                callingPointInternalName,
                 "newInstance",
-                "(Ljava/lang/Object;ZLjava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)${callingPointType.descriptor}",
+                "(Ljava/lang/Object;ZLjava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)${callingPointDesc}",
                 false
             ))
             add(VarInsnNode(Opcodes.ASTORE, argsNextIndex + 1))
@@ -153,7 +153,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             add(VarInsnNode(Opcodes.ALOAD, argsNextIndex + 1))
             add(MethodInsnNode(
                 Opcodes.INVOKEVIRTUAL,
-                callingPointType.internalName,
+                callingPointInternalName,
                 "release",
                 "()V",
                 false

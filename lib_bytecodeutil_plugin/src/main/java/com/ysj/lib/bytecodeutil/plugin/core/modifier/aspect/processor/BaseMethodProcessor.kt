@@ -4,7 +4,8 @@ import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.modifier.argsInsnList
 import com.ysj.lib.bytecodeutil.modifier.isStatic
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointType
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointDesc
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointInternalName
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.*
 
@@ -31,7 +32,7 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
             while (node != null) {
                 if (node is MethodInsnNode
                     && node.opcode == Opcodes.INVOKESTATIC
-                    && node.owner == joinPointType.internalName
+                    && node.owner == joinPointInternalName
                     && node.name == "put"
                 ) return true
                 node = node.previous
@@ -49,7 +50,7 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
         add(methodNode.argsInsnList()).apply { remove(last) }
         add(MethodInsnNode(
             Opcodes.INVOKESTATIC,
-            joinPointType.internalName,
+            joinPointInternalName,
             "put",
             "(Ljava/lang/String;Ljava/lang/Object;[Ljava/lang/Object;)V",
             false
@@ -66,7 +67,7 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
         add(LdcInsnNode("${classNode.name}-${methodNode.name}${methodNode.desc}"))
         add(MethodInsnNode(
             Opcodes.INVOKESTATIC,
-            joinPointType.internalName,
+            joinPointInternalName,
             "remove",
             "(Ljava/lang/String;)V",
             false
@@ -94,9 +95,9 @@ open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
         add(LdcInsnNode("${classNode.name}-${methodNode.name}${methodNode.desc}"))
         add(MethodInsnNode(
             Opcodes.INVOKESTATIC,
-            joinPointType.internalName,
+            joinPointInternalName,
             "get",
-            "(Ljava/lang/String;)${joinPointType.descriptor}",
+            "(Ljava/lang/String;)${joinPointDesc}",
             false
         ))
     }

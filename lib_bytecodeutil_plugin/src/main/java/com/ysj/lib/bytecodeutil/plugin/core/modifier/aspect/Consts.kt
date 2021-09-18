@@ -26,10 +26,14 @@ val ANNOTATION_POINTCUT_DESC by lazy { ANNOTATION_POINTCUT.descriptor }
 // =============== JoinPoint =================
 
 val joinPointType by lazy { Type.getType(JoinPoint::class.java) }
+val joinPointDesc by lazy { joinPointType.descriptor }
+val joinPointInternalName by lazy { joinPointType.internalName }
 
 // =============== CallingPoint =================
 
 val callingPointType by lazy { Type.getType(CallingPoint::class.java) }
+val callingPointDesc by lazy { callingPointType.descriptor }
+val callingPointInternalName by lazy { callingPointType.internalName }
 
 /** 切面类实例的 FIELD 名 */
 const val ASPECT_CLASS_INSTANCE = "INSTANCE"
