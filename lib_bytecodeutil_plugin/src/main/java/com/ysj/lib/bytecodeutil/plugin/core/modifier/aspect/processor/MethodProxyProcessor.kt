@@ -108,7 +108,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         val returnType = Type.getReturnType(calling.desc)
         val joinPointDesc = if (hasJoinPoint) joinPointType.descriptor else ""
         val method = MethodNode(
-            Opcodes.ACC_STATIC,
+            Opcodes.ACC_STATIC or Opcodes.ACC_SYNTHETIC,
             "$PREFIX_PROXY_METHOD$proxyName",
             "($callerDesc$argsDesc$joinPointDesc)${returnType.descriptor}",
             null,
