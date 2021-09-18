@@ -73,10 +73,25 @@ class CallingPoint private constructor(
     var args: Array<Any?> = args
         private set
 
+    /** 多级代理嵌套时的最终代理目标的 [CallingPoint] */
+    @JvmField
+    var orgCallingPoint: CallingPoint? = null
+
     /**
-     * 调用原方法
+     * 调用代理的方法
      */
     fun call() = method.invoke(if (isStatic) null else caller, *args)
+
+    /**
+     * 调用多级代理嵌套时的最终代理目标的方法
+     */
+    fun callOrg() = orgCallingPoint?.call()
+
+    /**
+     * 获取代理的最终目标方法上的注解
+     */
+    fun <T : Annotation> annotation(clazz: Class<T>): T? =
+        orgCallingPoint?.annotation(clazz) ?: method.getAnnotation(clazz)
 
     /**
      * 释放引用。会自动调用，不用手动调
@@ -84,5 +99,6 @@ class CallingPoint private constructor(
     fun release() {
         caller = EMPTY_OBJ
         args = EMPTY_ARRAY
+        orgCallingPoint = null
     }
 }
