@@ -5,10 +5,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
 import com.ysj.lib.bytecodeutil.modifier.*
 import com.ysj.lib.bytecodeutil.plugin.core.MD5
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.PointcutBean
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.callingPointType
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointType
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.*
 import org.codehaus.groovy.ast.ClassHelper
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -23,11 +20,6 @@ import java.util.regex.Pattern
  * Create time: 2021/8/15
  */
 class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor(aspectModifier) {
-
-    companion object {
-        /** 代理方法的前缀 */
-        const val PREFIX_PROXY_METHOD = "bcu_proxy_"
-    }
 
     private val logger = YLogger.getLogger(javaClass)
 
@@ -139,7 +131,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             add(FieldInsnNode(
                 Opcodes.GETSTATIC,
                 pointcut.aspectClassName,
-                "instance",
+                ASPECT_CLASS_INSTANCE,
                 Type.getObjectType(pointcut.aspectClassName).descriptor
             ))
             // joinPoint

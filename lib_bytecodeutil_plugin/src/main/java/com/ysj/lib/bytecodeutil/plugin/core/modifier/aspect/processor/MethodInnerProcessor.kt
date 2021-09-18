@@ -4,6 +4,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.POSITION_RETURN
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_START
 import com.ysj.lib.bytecodeutil.modifier.firstNode
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.ASPECT_CLASS_INSTANCE
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.PointcutBean
 import org.objectweb.asm.Opcodes
@@ -35,7 +36,7 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                 add(FieldInsnNode(
                     Opcodes.GETSTATIC,
                     pointcut.aspectClassName,
-                    "instance",
+                    ASPECT_CLASS_INSTANCE,
                     Type.getObjectType(pointcut.aspectClassName).descriptor
                 ))
                 if (hasJoinPoint) add(getJoinPoint(classNode, methodNode))

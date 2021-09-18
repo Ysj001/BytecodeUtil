@@ -30,3 +30,9 @@ val joinPointType by lazy { Type.getType(JoinPoint::class.java) }
 // =============== CallingPoint =================
 
 val callingPointType by lazy { Type.getType(CallingPoint::class.java) }
+
+/** 切面类实例的 FIELD 名 */
+const val ASPECT_CLASS_INSTANCE = "INSTANCE"
+
+/** 代理方法的前缀 */
+const val PREFIX_PROXY_METHOD = "bcu_proxy_"
