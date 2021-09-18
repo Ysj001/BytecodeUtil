@@ -109,23 +109,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         method.instructions.apply {
             // caller, ...args 的下一个参数的索引
             val argsNextIndex = args.size + if (calling.isStatic) 0 else 1
-            // caller
-            add(if (!calling.isStatic) VarInsnNode(Opcodes.ALOAD, 0) else callerType.classInsnNode)
-            // isStatic
-            add(InsnNode(if (calling.isStatic) Opcodes.ICONST_1 else Opcodes.ICONST_0))
-            // funName
-            add(LdcInsnNode(calling.name))
-            // new Class[]{...argTypes}
-            add(args.argTypesArray())
-            // new Object[]{...args}
-            add(args.argsArray(if (calling.isStatic) 0 else 1))
-            add(MethodInsnNode(
-                Opcodes.INVOKESTATIC,
-                callingPointInternalName,
-                "newInstance",
-                "(Ljava/lang/Object;ZLjava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)${callingPointDesc}",
-                false
-            ))
+            // CallingPoint callingPoint = CallingPoint.newInstance(xxx);
+            createCallingPoint(calling, callerType, args)
             add(VarInsnNode(Opcodes.ASTORE, argsNextIndex + 1))
             // {AspectClass}.instance
             add(FieldInsnNode(
@@ -165,6 +150,26 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         }
         methods.add(method)
         return method
+    }
+
+    private fun InsnList.createCallingPoint(calling: MethodInsnNode, callerType: Type, args: Array<Type>) {
+        // caller
+        add(if (!calling.isStatic) VarInsnNode(Opcodes.ALOAD, 0) else callerType.classInsnNode)
+        // isStatic
+        add(InsnNode(if (calling.isStatic) Opcodes.ICONST_1 else Opcodes.ICONST_0))
+        // funName
+        add(LdcInsnNode(calling.name))
+        // new Class[]{...argTypes}
+        add(args.argTypesArray())
+        // new Object[]{...args}
+        add(args.argsArray(if (calling.isStatic) 0 else 1))
+        add(MethodInsnNode(
+            Opcodes.INVOKESTATIC,
+            callingPointInternalName,
+            "newInstance",
+            "(Ljava/lang/Object;ZLjava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)${callingPointDesc}",
+            false
+        ))
     }
 
     private fun Array<Type>.argTypesArray() = InsnList().apply {
