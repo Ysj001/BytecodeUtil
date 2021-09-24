@@ -226,9 +226,9 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
         val classNode = aspectModifier.allClassNode[node.owner] ?: return false
         val predicate: (AnnotationNode) -> Boolean = { Pattern.matches(pointcutBean.target, it.desc) }
-        val methodNode = classNode.methods
-            .find { it.visibleAnnotations?.find(predicate) != null || it.invisibleAnnotations?.find(predicate) != null }
-            ?: return false
-        return methodNode.name == node.name && methodNode.desc == node.desc
+        return classNode.methods.find {
+            it.name == node.name && it.desc == node.desc &&
+                    (it.visibleAnnotations?.find(predicate) != null || it.invisibleAnnotations?.find(predicate) != null)
+        } != null
     }
 }
