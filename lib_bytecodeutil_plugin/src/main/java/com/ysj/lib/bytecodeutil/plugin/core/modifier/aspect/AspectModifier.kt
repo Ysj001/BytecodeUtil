@@ -184,7 +184,7 @@ class AspectModifier(
     /**
      * 查找类中所有的切入点
      */
-    private fun findPointcuts(classNode: ClassNode, block: (PointcutBean, MethodNode) -> Unit) {
+    private inline fun findPointcuts(classNode: ClassNode, block: (PointcutBean, MethodNode) -> Unit) {
         ArrayList(classNode.methods).forEach { mn ->
             // 查找类中的
             targetClass.forEach target@{
@@ -198,17 +198,11 @@ class AspectModifier(
             }
             // 查找父类中的
             for (it in targetSuperClass) {
-                fun findSuperClass(superName: String?) {
-                    superName ?: return
-                    if (it.position == POSITION_CALL) block(it, mn)
-                    else {
-                        if (!Pattern.matches(it.target, classNode.name)) findSuperClass(allClassNode[superName]?.superName)
-                        if (!Pattern.matches(it.funName, mn.name)) findSuperClass(allClassNode[superName]?.superName)
-                        if (!Pattern.matches(it.funDesc, mn.desc)) findSuperClass(allClassNode[superName]?.superName)
-                        block(it, mn)
-                    }
+                if (it.position == POSITION_CALL) {
+                    block(it, mn)
+                    continue
                 }
-                findSuperClass(classNode.superName)
+                if (it.matchSuperClass(mn, classNode.superName)) block(it, mn)
             }
             // todo 查找接口中的
 
@@ -222,5 +216,12 @@ class AspectModifier(
                 mn.invisibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb, mn) }
             }
         }
+    }
+
+    private fun PointcutBean.matchSuperClass(mn: MethodNode, superName: String): Boolean {
+        return (Pattern.matches(target, superName) &&
+                Pattern.matches(funName, mn.name) &&
+                Pattern.matches(funDesc, mn.desc)) ||
+                matchSuperClass(mn, allClassNode[superName]?.superName ?: return false)
     }
 }
