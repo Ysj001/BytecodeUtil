@@ -11,10 +11,10 @@ import java.util.concurrent.ConcurrentHashMap
  * @author Ysj
  * Create time: 2021/3/8
  */
-class JoinPoint private constructor(
+class JoinPoint(
     target: Any?,
     args: Array<Any?>,
-) : Serializable {
+) : Serializable, Cloneable {
     companion object {
         private val STORE = ConcurrentHashMap<String, JoinPoint>()
 
@@ -48,4 +48,6 @@ class JoinPoint private constructor(
     /** 切入点方法的参数 */
     var args: Array<Any?> = args
         private set
+
+    public override fun clone(): JoinPoint = super.clone() as JoinPoint
 }

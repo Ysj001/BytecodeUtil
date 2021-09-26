@@ -12,14 +12,14 @@ import java.lang.reflect.Method
  * @author Ysj
  * Create time: 2021/7/21
  */
-class CallingPoint private constructor(
+class CallingPoint(
     caller: Any,
     /** 是否是静态方法 */
     val isStatic: Boolean,
     /** 调用的方法 */
     val method: Method,
     args: Array<Any?>,
-) : Serializable {
+) : Serializable, Cloneable {
 
     companion object {
         /** 最大缓存大小，注意只有使用前设置有效 */
@@ -75,6 +75,8 @@ class CallingPoint private constructor(
     /** 多级代理嵌套时的最终代理目标的 [CallingPoint] */
     @JvmField
     var orgCallingPoint: CallingPoint? = null
+
+    public override fun clone(): CallingPoint = super.clone() as CallingPoint
 
     /**
      * 调用代理的方法
