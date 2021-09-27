@@ -1,11 +1,16 @@
 package com.ysj.lib.bytecodeutil.plugin.core
 
+import com.ysj.lib.bytecodeutil.api.util.BCUKeep
+import org.objectweb.asm.Type
+
 /*
  * 定义常量
  *
  * @author Ysj
  * Create time: 2021/3/5
  */
+
+val BCU_KEEP_DESC by lazy { Type.getType(BCUKeep::class.java).descriptor }
 
 /**
  * 校验是否是 Android R 文件

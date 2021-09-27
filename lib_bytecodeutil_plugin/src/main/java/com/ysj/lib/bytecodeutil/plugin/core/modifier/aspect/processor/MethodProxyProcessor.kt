@@ -2,7 +2,9 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
+import com.ysj.lib.bytecodeutil.api.util.BCUKeep
 import com.ysj.lib.bytecodeutil.modifier.*
+import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
 import com.ysj.lib.bytecodeutil.plugin.core.MD5
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.*
@@ -12,6 +14,7 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 import java.util.*
 import java.util.regex.Pattern
+import kotlin.collections.ArrayList
 
 /**
  * 方法调用代理处理器
@@ -52,6 +55,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             insnList.insertBefore(node, proxyNode)
             insnList.remove(node)
             if (proxy != null) recordProxyNode.remove(proxy)
+            else node.addBCUKeep()
             recordProxyNode[proxyNode] = realNode
             // 插入参数
             if (hasJoinPoint) insnList.insertBefore(proxyNode, getJoinPoint(classNode, methodNode))
@@ -64,6 +68,25 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             }
             cacheRemovedJoinPoint(classNode, methodNode)
         }
+    }
+
+    private fun MethodInsnNode.addBCUKeep() {
+        val classNode = aspectModifier.allClassNode[owner] ?: return
+        classNode.methods.find { it.name == name && it.desc == desc }?.addBCUKeep()
+    }
+
+    /**
+     * 使用 [BCUKeep] 注解标记方法，便于混淆后保留
+     */
+    @Synchronized
+    private fun MethodNode.addBCUKeep() {
+        var annotations = invisibleAnnotations
+        if (annotations == null) {
+            annotations = ArrayList()
+            invisibleAnnotations = annotations
+        }
+        if (annotations.find { it.desc == BCU_KEEP_DESC } != null) return
+        annotations.add(AnnotationNode(BCU_KEEP_DESC))
     }
 
     /**
@@ -160,6 +183,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             }
             add(InsnNode(returnType.getOpcode(Opcodes.IRETURN)))
         }
+        method.addBCUKeep()
         methods.add(method)
         return method
     }
