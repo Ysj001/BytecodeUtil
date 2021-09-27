@@ -204,8 +204,14 @@ class AspectModifier(
                 }
                 if (it.matchSuperClass(mn, classNode.superName)) block(it, mn)
             }
-            // todo 查找接口中的
-
+            // 查找接口中的
+            for (it in targetInterface) {
+                if (it.position == POSITION_CALL) {
+                    block(it, mn)
+                    continue
+                }
+                if (it.matchInterface(classNode, mn)) block(it, mn)
+            }
             // 查找注解中的
             targetAnnotation.forEach pb@{ pb ->
                 if (pb.position == POSITION_CALL) {
@@ -216,6 +222,23 @@ class AspectModifier(
                 mn.invisibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb, mn) }
             }
         }
+    }
+
+    private fun PointcutBean.matchInterface(cn: ClassNode, mn: MethodNode): Boolean {
+        return (matchInterface(target, cn.interfaces) &&
+                Pattern.matches(funName, mn.name) &&
+                Pattern.matches(funDesc, mn.desc)) ||
+                matchInterface(allClassNode[cn.superName] ?: return false, mn)
+    }
+
+    private fun matchInterface(target: String, interfaces: List<String>?): Boolean {
+        interfaces?.forEachIndexed { _, itf ->
+            if (
+                Pattern.matches(target, itf) ||
+                matchInterface(target, allClassNode[itf]?.interfaces)
+            ) return true
+        }
+        return false
     }
 
     private fun PointcutBean.matchSuperClass(mn: MethodNode, superName: String): Boolean {
