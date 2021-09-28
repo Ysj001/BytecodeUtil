@@ -71,8 +71,8 @@ class AspectModifier(
                 aspectFunDesc = it.desc,
                 target = target,
                 targetType = targetType,
-                funName = params[Pointcut::funName.name] as String,
-                funDesc = params[Pointcut::funDesc.name] as String,
+                funName = params.getOrDefault(Pointcut::funName.name, ".*.") as String,
+                funDesc = params.getOrDefault(Pointcut::funDesc.name, ".*.") as String,
                 position = params[Pointcut::position.name] as Int,
             ).also { pcb ->
                 logger.verbose("====== method: ${it.name} ======\n$pcb")
