@@ -55,12 +55,12 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             POSITION_START -> callAspectFun(firstNode)
             POSITION_RETURN -> for (insnNode in insnList) {
                 if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
-                callAspectFun(insnNode)
-                if (!isStoredJoinPoint || removedJoinPoint) continue
-                insnList.insertBefore(insnNode, removeJoinPoint(classNode, methodNode))
+                if (!isStoredJoinPoint) callAspectFun(insnNode)
+                else if (!removedJoinPoint) callAspectFun(insnNode)
+                else callAspectFun(insnNode.previous.previous)
             }
         }
-        if (isStoredJoinPoint && pointcut.position != POSITION_RETURN && !removedJoinPoint) for (insnNode in insnList) {
+        if (isStoredJoinPoint && !removedJoinPoint) for (insnNode in insnList) {
             if (insnNode.opcode !in Opcodes.IRETURN..Opcodes.RETURN) continue
             insnList.insertBefore(insnNode, removeJoinPoint(classNode, methodNode))
         }
