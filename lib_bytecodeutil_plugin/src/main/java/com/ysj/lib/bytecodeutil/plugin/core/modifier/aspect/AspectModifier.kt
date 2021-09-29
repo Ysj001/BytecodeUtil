@@ -118,8 +118,12 @@ class AspectModifier(
         allClassNode.forEach {
             // 注意这里没加锁，内部不要多线程修改
             executor.exec(latch, onError = { throwable = it }) {
-                handleAspect(it.value)
-                handlePointcut(it.value)
+                val classNode = it.value
+                if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } != null) {
+                    handleAspect(classNode)
+                    return@exec
+                }
+                handlePointcut(classNode)
             }
         }
         latch.await()
@@ -132,8 +136,6 @@ class AspectModifier(
      * 在 [Aspect] 注解的类中添加用于获取该类实例的静态成员
      */
     private fun handleAspect(classNode: ClassNode) {
-        // 过滤所有没有 Aspect 注解的类
-        if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } == null) return
         val access = Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC or Opcodes.ACC_FINAL
         val desc = Type.getObjectType(classNode.name).descriptor
         if (classNode.fields.find { it.access == access && it.name == ASPECT_CLASS_INSTANCE && it.desc == desc } != null) return
