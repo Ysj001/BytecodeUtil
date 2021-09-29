@@ -23,4 +23,4 @@ dependencies {
     implementation("$LIB_GROUP_ID:bytecodeutil-modifier:$LIB_VERSION")
 }
 
-mavenPublish()
+//mavenPublish()

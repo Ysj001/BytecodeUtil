@@ -7,7 +7,9 @@ plugins {
 bytecodeUtil {
     loggerLevel = 1
     modifiers = arrayOf(
-        Class.forName("com.ysj.demo.plugin.TestModifier")
+        Class.forName("com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier")
+        // 演示挂载 demo_plugin 插件中的修改器
+//        Class.forName("com.ysj.demo.plugin.TestModifier")
     )
     notNeedJar = { entryName ->
         entryName.startsWith("kotlin/")

@@ -8,4 +8,4 @@ package com.ysj.lib.simpleaop
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class LogPositionCall
+annotation class LogPositionReturn
