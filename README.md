@@ -1,134 +1,101 @@
 ### BytecodeUtil
 
-本库对一些常用的字节码修改目的进行封装，目的是为了便于开发者在源码中通过注解控制编译时的字节码生成，以达到一些编码时难以实现的功能。
+本库对一些常用的字节码修改目的进行封装，目的是为了便于开发者在源码中通过注解控制编译时的字节码生成，以达到一些编码时难以实现的功能。并提供自定义字节码修改器注册接口提升你的发开效率。
 
-基于 ASM + 安卓 Transform。轻量级，高性能。
+#### 功能&特点
 
-目前处于开发阶段……
+- [x] 基于 Transform + ASM，内部多线程并行处理 IO。高兼容，高效率。
+- [x] 平台化，支持挂载自定义字节码修改器（Modifier）。方便自定义功能开发的同时不会有多余的 Transform 任务产生。Modifier 的执行顺序可依据开发者设置的顺序执行。
+- [x] 可替代 AspectJ 的 AOP 功能
+- [ ] 依赖注入功能
 
 
 
 #### 了解&编译项目
 
 - BytecodeUtil
-  - `app` —— 用于演示的 Demo
-  - `repos` —— BytecodeUtil 的本地 maven 仓库，便于开发时调试
-  - `lib_bytecodeutil_api` —— BytecodeUtil 的相关 API
-  - `lib_bytecodeutil_plugin` —— BytecodeUtil 的插件，用于编译时修改字节码
-    - `.../modifoer/impl/` —— 存放所有字节码修改器实现目录
-      - `aspect` —— AOP 相关实现
-      - `di` —— 依赖注入相关实现
+  - `app` 用于演示的 Demo
+  - `buildSrc`  管理 maven 发布和版本控制
+  - `repos` 的本地 maven 仓库，便于开发时调试
+  - `demo_plugin` 演示挂载自定义的 Modifier
+  - `lib_bytecodeutil_api`  BytecodeUtil 的相关 API
+  - `lib_bytecodeutil_plugin`  BytecodeUtil 的插件，用于编译时修改字节码
+    - `/core/modifoer`  存放自带的字节码修改器
+      - `aspect`  AOP 相关实现
+      - `di` 依赖注入相关实现（待实现）
 
-注意：在构建前先在项目根目录下执行该命令保持本地仓库应用最新的源码
+- 注意：在构建前先在项目根目录下执行该命令保持本地仓库应用最新的源码
 
-- gradlew publishAllPublicationsToLocalRepository
+  gradlew publishAllPublicationsToLocalRepository
+
+- [了解 Gradle 和 Transform 点这](https://blog.csdn.net/qq_35365635/article/details/120355777)
 
 
 
-#### 实现思路&使用
+#### 如何使用
+
+##### 混淆配置
+
+```text
+-keepclassmembers class * {
+    @com.ysj.lib.bytecodeutil.api.util.BCUKeep <methods>;
+}
+```
 
 ##### AOP
 
 ###### 介绍
 
-Aspect Oriented Programming。面向切面编程，它的应用是指在不修改源代码的情况下给程序动态添加功能，并将这个功能统一横切到一个类中处理的一种编程方式，能充分体现了高内聚低耦合的编程思想。
-
-AOP 有常见的几种实现方式：拦截器；动态代理；编译期代码织入。
-
-本库采用的是"编译期代码织入"的方式，通过一系列注解使得开发人员能在源码中定义织入行为。
-
-###### 设计&思路
-
-- 首先要实现 AOP 我们需要定义一个用来处理切面的类的注解 **Aspect**
-
-  ```kotlin
-  @Target(AnnotationTarget.CLASS)
-  @Retention(AnnotationRetention.BINARY)
-  annotation class Aspect
-  ```
-
-  有了该注解即可在编译时查找到开发者所标注的需要进行处理的切面类了。
-
-- 在获取到切面类后就需要定义切面所需要处理的切入点了
-
-  因此我们需要再定义一个注解 **Pointcut**
-
-  ```kotlin
-  @Target(AnnotationTarget.FUNCTION)
-  @Retention(AnnotationRetention.BINARY)
-  annotation class Pointcut(
-      /**
-       * 目标切入点
-       *
-       * 不同的前缀表达不同的含义：
-       * - "class:" --> 类
-       * - "superClass:" --> 父类
-       * - "interface:" --> 接口
-       * - "annotation:" --> 注解
-       */
-      val target: String,
-      /**
-       * 切入点方法名，用于确定切入的方法
-       *
-       * 采用正则表达式 [Pattern.matches] 来匹配
-       */
-      val funName: String,
-      /**
-       * 切入点方法描述，用于确定切入的具体方法
-       *
-       * 采用正则表达式 [Pattern.matches] 来匹配
-       */
-      val funDesc: String,
-      /**
-       * 切入点的具体执行位置
-       * - -1 插入方法 return 前
-       * - 0 插入方法开头
-       * - 1 插入方法调用点，并代理目标调用
-       */
-      val position: Int,
-  )
-  ```
-
-  通过该注解即可确定切入的目标类，目标方法，和目标方法中的具体位置了。
-
-  并且该注解所标注的方法将会在该注解参数所定义的位置进行生成并调用。
-
-- 在切入点能执行切面中的方法后我们还需要将切入点和切入方法产生联系
-
-  因此我们需要再定义一个连接点 **JointPoint**
-
-  ```kotlin
-  class JoinPoint(
-      /** 切入点的 this 获取的对象，若切入点在静态方法内，则为 null */
-      val target: Any,
-      /** 切入点方法的参数 */
-      val args: Array<Any?>,
-  ) : Serializable
-  ```
-
-  有了连接点后，即可获得，切入对象和切入点所在方法的参数了。
-
-  这时我们就可以将连接点作为切入方法的参数，以此使得切入方法和切入点取得联系。
+Aspect Oriented Programming。面向切面编程，它的应用是指在不修改源代码的情况下给程序动态添加功能，并将这个功能统一横切到一处统一处理的一种编程方式，能充分体现了高内聚低耦合的编程思想。
 
 ###### 案例（DEMO）
 
-- 切入 MainActivity 的类，并在其 onCreate 生命周期函数执行时打印 log
+- 在 MainActivity 的 onCreate 函数体开头插入如下打印 log 的方法
 
   ```kotlin
   @Aspect
-  class AopTest {
-      companion object {
-          private const val TAG = "AopTest"
-      }
+  object AopTest {
       @Pointcut(
           target = "class:.*MainActivity",
           funName = "onCreate",
           funDesc = "\\(Landroid/os/Bundle;\\)V",
-          position = 0,
+          position = POSITION_START,
       )
       fun log(joinPoint: JoinPoint) {
           Log.i(TAG, "捕获到: ${joinPoint.target} args:${joinPoint.args}")
       }
   }
   ```
+  
+- 代理任意方法实现间隔触发
+
+  ```kotlin
+  @Target(AnnotationTarget.FUNCTION)
+  @Retention(AnnotationRetention.RUNTIME)
+  annotation class IntervalTrigger(
+      val intervalMS: Long = 1000
+  )
+  
+  @Aspect
+  object AopTest {
+      var oldTriggerTime = 0L
+      @Pointcut(
+          target = "annotation:L.*IntervalTrigger;",
+          position = POSITION_CALL,
+      )
+      fun log(callingPoint: CallingPoint) {
+          val trigger = callingPoint.annotation(IntervalTrigger::class.java) ?: return
+          val currentTimeMillis = System.currentTimeMillis()
+          if (currentTimeMillis - oldTriggerTime < trigger.intervalMS) {
+              Log.i(TAG, "log5: 禁止触发")
+              return
+          }
+          oldTriggerTime = currentTimeMillis
+          Log.i(TAG, "log5: 成功触发")
+          callingPoint.call()
+      }
+  }
+  ```
+
+- 
 
