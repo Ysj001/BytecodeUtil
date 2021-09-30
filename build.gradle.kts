@@ -19,7 +19,7 @@ buildscript {
         // in the individual module build.gradle files
         classpath("$PROJECT_LIB_GROUP_ID:bytecodeutil-plugin:$PROJECT_LIB_VERSION")
         // demo plugin
-        classpath("$PROJECT_LIB_GROUP_ID:demo-plugin:$PROJECT_LIB_VERSION")
+//        classpath("$PROJECT_LIB_GROUP_ID:demo-plugin:$PROJECT_LIB_VERSION")
     }
 }
 

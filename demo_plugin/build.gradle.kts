@@ -23,4 +23,5 @@ dependencies {
     implementation("$LIB_GROUP_ID:bytecodeutil-modifier:$LIB_VERSION")
 }
 
+// 如果要发布本 demo 则打开注释
 //mavenPublish()
