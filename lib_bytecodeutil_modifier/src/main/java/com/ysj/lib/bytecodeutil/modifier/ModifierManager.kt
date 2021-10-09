@@ -2,6 +2,7 @@ package com.ysj.lib.bytecodeutil.modifier
 
 import com.android.build.api.transform.Transform
 import com.android.build.api.transform.TransformInvocation
+import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
 
 /**
@@ -30,10 +31,10 @@ class ModifierManager(override val transform: Transform) : IModifier {
         }
     }
 
-    fun addModifier(modifier: Class<out IModifier>, transformInvocation: TransformInvocation) {
+    fun addModifier(modifier: Class<out IModifier>, project: Project, transformInvocation: TransformInvocation) {
         val constructor = modifier.getConstructor(Transform::class.java, Map::class.java)
         val element = constructor.newInstance(transform, allClassNode)
         (modifiers as ArrayList).add(element)
-        element.initialize(transformInvocation)
+        element.initialize(project, transformInvocation)
     }
 }

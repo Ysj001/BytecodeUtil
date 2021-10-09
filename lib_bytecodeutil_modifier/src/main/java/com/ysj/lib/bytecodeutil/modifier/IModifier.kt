@@ -2,6 +2,7 @@ package com.ysj.lib.bytecodeutil.modifier
 
 import com.android.build.api.transform.Transform
 import com.android.build.api.transform.TransformInvocation
+import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
 
 /**
@@ -20,7 +21,7 @@ interface IModifier {
     /**
      * 初始化
      */
-    fun initialize(transformInvocation: TransformInvocation) = Unit
+    fun initialize(project: Project, transformInvocation: TransformInvocation) = Unit
 
     /**
      * 扫描类所有需要修改的类，每扫描到一个类会回调一次该方法

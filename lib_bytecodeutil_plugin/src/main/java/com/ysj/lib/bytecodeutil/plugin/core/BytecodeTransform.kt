@@ -58,7 +58,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                                            outputProvider,
                                            isIncremental ->
             extensions.modifiers?.forEach {
-                modifierManager.addModifier(it as Class<out IModifier>, transformInvocation)
+                modifierManager.addModifier(it as Class<out IModifier>, project, transformInvocation)
             }
             if (!isIncremental) outputProvider.deleteAll()
             val oldTime = System.currentTimeMillis()
