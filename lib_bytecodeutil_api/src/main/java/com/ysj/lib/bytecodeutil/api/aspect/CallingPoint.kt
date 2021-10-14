@@ -57,7 +57,14 @@ class CallingPoint(
                 try {
                     getMethod(funName, *parameterTypes)
                 } catch (e: Exception) {
-                    getDeclaredMethod(funName, *parameterTypes).apply { isAccessible = true }
+                    var clazz: Class<out Any>? = this
+                    var method: Method? = null
+                    while (clazz != null && method == null) try {
+                        method = clazz.getDeclaredMethod(funName, *parameterTypes)
+                    } catch (e: Exception) {
+                        clazz = clazz.superclass
+                    }
+                    method!!.apply { isAccessible = true }
                 },
                 args
             ).also { cache[cacheKey] = it }
