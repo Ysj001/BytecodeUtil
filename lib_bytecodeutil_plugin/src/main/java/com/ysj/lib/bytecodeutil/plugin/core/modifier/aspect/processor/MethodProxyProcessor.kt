@@ -13,6 +13,7 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
 
@@ -27,7 +28,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     private val logger = YLogger.getLogger(javaClass)
 
     // 记录代理替换的节点。key：代理的节点 value：源节点
-    private val recordProxyNode by lazy { HashMap<MethodInsnNode, MethodInsnNode>() }
+    private val recordProxyNode = ConcurrentHashMap<MethodInsnNode, MethodInsnNode>()
 
     fun process(pointcutBean: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
         if (pointcutBean.position != POSITION_CALL) return
@@ -40,8 +41,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             val realNode = proxy ?: node
             pointcutBean.takeIf {
                 isAnnotationTarget(it, realNode) || Pattern.matches(it.target, realNode.owner)
-                        && Pattern.matches(it.funName, realNode.name)
-                        && Pattern.matches(it.funDesc, realNode.desc)
+                    && Pattern.matches(it.funName, realNode.name)
+                    && Pattern.matches(it.funDesc, realNode.desc)
             } ?: return@node
             // 切面方法的参数
             val aspectFunArgs = pointcutBean.aspectFunArgs
@@ -72,13 +73,12 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     private fun MethodInsnNode.addBCUKeep() {
         val classNode = aspectModifier.allClassNode[owner] ?: return
-        classNode.methods.find { it.name == name && it.desc == desc }?.addBCUKeep()
+        classNode.methods.lock { find { it.name == name && it.desc == desc }?.addBCUKeep() }
     }
 
     /**
      * 使用 [BCUKeep] 注解标记方法，便于混淆后保留
      */
-    @Synchronized
     private fun MethodNode.addBCUKeep() {
         var annotations = invisibleAnnotations
         if (annotations == null) {
@@ -103,18 +103,20 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
      */
     private fun ClassNode.generateProxyMethod(pointcut: PointcutBean, calling: MethodInsnNode, hasJoinPoint: Boolean): MethodNode {
         val proxyName = "${calling.owner}${calling.name}${calling.desc}".MD5
-        var find: MethodNode? = null
-        // 代理方法都添加到了 methods 的后面，从后面查比较快
-        for (i in methods.lastIndex downTo 0) {
-            val method = methods[i]
-            // 代理方法都有前缀，没有前缀说明没生成过直接 break
-            if (!method.name.startsWith(PREFIX_PROXY_METHOD)) break
-            if (method.name.endsWith(proxyName)) {
-                find = method
-                break
+        methods.lock {
+            var find: MethodNode? = null
+            // 代理方法都添加到了 methods 的后面，从后面查比较快
+            for (i in methods.lastIndex downTo 0) {
+                val method = methods[i]
+                // 代理方法都有前缀，没有前缀说明没生成过直接 break
+                if (!method.name.startsWith(PREFIX_PROXY_METHOD)) break
+                if (method.name.endsWith(proxyName)) {
+                    find = method
+                    break
+                }
             }
+            if (find != null) return find
         }
-        if (find != null) return find
         val callerType = Type.getObjectType(calling.owner)
         val callerDesc = if (calling.isStatic) "" else callerType.descriptor
         val args = Type.getArgumentTypes(calling.desc)
@@ -183,8 +185,10 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             }
             add(InsnNode(returnType.getOpcode(Opcodes.IRETURN)))
         }
-        method.addBCUKeep()
-        methods.add(method)
+        methods.lock {
+            method.addBCUKeep()
+            methods.add(method)
+        }
         return method
     }
 
@@ -250,9 +254,11 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
         val classNode = aspectModifier.allClassNode[node.owner] ?: return false
         val predicate: (AnnotationNode) -> Boolean = { Pattern.matches(pointcutBean.target, it.desc) }
-        return classNode.methods.find {
-            it.name == node.name && it.desc == node.desc &&
+        return classNode.methods.lock {
+            find {
+                it.name == node.name && it.desc == node.desc &&
                     (it.visibleAnnotations?.find(predicate) != null || it.invisibleAnnotations?.find(predicate) != null)
-        } != null
+            } != null
+        }
     }
 }
