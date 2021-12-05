@@ -10,7 +10,7 @@ import java.util.concurrent.Executor
  * Create time: 2021/8/28
  */
 
-fun <T : Any> T.lock(block: T.() -> Unit) = synchronized(this) { block() }
+inline fun <T : Any, R> T.lock(block: T.() -> R): R = synchronized(this) { block() }
 
 fun Executor.exec(latch: CountDownLatch, onError: (Throwable) -> Unit, block: () -> Unit) =
     execute {
