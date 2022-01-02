@@ -13,9 +13,9 @@ import org.objectweb.asm.tree.ClassNode
  */
 class ModifierManager(override val transform: Transform) : IModifier {
 
-    override val allClassNode: HashMap<String, ClassNode> by lazy { HashMap() }
+    override val allClassNode = HashMap<String, ClassNode>()
 
-    private val modifiers: MutableCollection<IModifier> by lazy { ArrayList() }
+    private val modifiers = ArrayList<IModifier>()
 
     override fun scan(classNode: ClassNode) {
         allClassNode[classNode.name] = classNode
@@ -34,7 +34,7 @@ class ModifierManager(override val transform: Transform) : IModifier {
     fun addModifier(modifier: Class<out IModifier>, project: Project, transformInvocation: TransformInvocation) {
         val constructor = modifier.getConstructor(Transform::class.java, Map::class.java)
         val element = constructor.newInstance(transform, allClassNode)
-        (modifiers as ArrayList).add(element)
+        modifiers.add(element)
         element.initialize(project, transformInvocation)
     }
 }
