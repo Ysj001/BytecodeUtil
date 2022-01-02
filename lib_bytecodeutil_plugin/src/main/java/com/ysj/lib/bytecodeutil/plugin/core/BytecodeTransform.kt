@@ -7,6 +7,7 @@ import com.android.utils.FileUtils
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
+import com.ysj.lib.bytecodeutil.modifier.lock
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.ClassReader
@@ -16,11 +17,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.*
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
+import java.util.concurrent.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
-import java.util.jar.JarOutputStream
 
 /**
  *
@@ -38,7 +37,9 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val modifierManager by lazy(LazyThreadSafetyMode.NONE) { ModifierManager(this) }
+    private val modifierManager = ModifierManager(this)
+
+    private lateinit var executor: ExecutorService
 
     override fun getName(): String = PLUGIN_NAME
 
@@ -48,7 +49,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
     override fun getScopes(): MutableSet<in QualifiedContent.Scope> =
         TransformManager.SCOPE_FULL_PROJECT
 
-    override fun isIncremental(): Boolean = false
+    override fun isIncremental(): Boolean = true
 
     override fun transform(transformInvocation: TransformInvocation) {
         super.transform(transformInvocation)
@@ -63,106 +64,111 @@ class BytecodeTransform(private val project: Project) : Transform() {
             if (!isIncremental) outputProvider.deleteAll()
             val oldTime = System.currentTimeMillis()
             val dirItems = LinkedList<Pair<File, ProcessItem>>()
-            val jarItems = LinkedList<JarProcessItem>()
             // 预处理
-            inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems, jarItems) }
+            inputs.forEach { process(isIncremental, it.jarInputs, it.directoryInputs, outputProvider, dirItems) }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
             // 正式处理
-            process(dirItems, jarItems)
+            process(dirItems)
         }
     }
 
     private fun process(
+        isIncremental: Boolean,
         jis: Collection<JarInput>,
         dis: Collection<DirectoryInput>,
         output: TransformOutputProvider,
         dirItems: LinkedList<Pair<File, ProcessItem>>,
-        jarItems: LinkedList<JarProcessItem>,
     ) {
+        var throwable: Throwable? = null
+        val jisLatch = CountDownLatch(jis.size)
         jis.forEach { input ->
-            val src = input.file
-            val dest = output.getContentLocation(
-                input.name,
-                input.contentTypes,
-                input.scopes,
-                Format.JAR
-            )
-            val notNeeds = LinkedList<JarEntry>()
-            val needs = LinkedList<Pair<JarEntry, ProcessItem>>()
-            JarFile(src).use { jf ->
-                val entries = jf.entries()
-                entries.forEach {
-                    /*
-                        由于该 transform 可能后于其他 transform
-                        此时该 transform 的输入源会变为其他 transform 的输出
-                        此时输入源的名称会发生变化，因此不能简单通过 input.file.name 过滤
-                     */
-                    if (notNeedJarEntries()) notNeeds.push(this) else {
-                        logger.verbose("process jar file --> $name")
-                        needs.push(this to jf.getInputStream(this).visit())
+            executor.exec(jisLatch, onError = { throwable = it }) {
+                val src = input.file
+                val dest = output.getContentLocation(
+                    input.name,
+                    input.contentTypes,
+                    input.scopes,
+                    Format.DIRECTORY
+                )
+                if (isIncremental && input.status == Status.NOTCHANGED) {
+                    logger.info("no change file -- ${src.nameWithoutExtension} , ${dest.nameWithoutExtension}")
+                    val startIndex = dest.absolutePath.length + 1
+                    dest.walk().forEach file@{
+                        if (it.isDirectory) return@file
+                        val fileName = it.absolutePath.substring(startIndex).replace("\\", "/")
+                        if (fileName.notNeedJarEntries()) return@file
+                        logger.verbose("process cache jar file --> ${it.name}")
+                        dirItems.lock { add(it to it.inputStream().visit()) }
+                    }
+                    return@exec
+                }
+                JarFile(src).use { jf ->
+                    jf.entries().forEach entry@{
+                        if (isDirectory) return@entry
+                        val file = File(dest, name)
+                        file.parentFile.also { if (!it.exists()) it.mkdirs() }
+                        if (file.exists()) file.delete()
+                        file.createNewFile()
+                        jf.getInputStream(this).use { jis ->
+                            if (notNeedJarEntries()) {
+                                file.outputStream().use { fos ->
+                                    jis.copyTo(fos)
+                                }
+                            } else {
+                                logger.verbose("process jar2dir file --> ${file.name}")
+                                dirItems.lock { add(file to jis.visit()) }
+                            }
+                        }
                     }
                 }
             }
-            if (needs.isEmpty()) FileUtils.copyFile(src, dest)
-            else jarItems.push(JarProcessItem(src, dest, notNeeds, needs))
         }
+        jisLatch.await()
+        throwable?.also { throw it }
+        val disLatch = CountDownLatch(dis.size)
         dis.forEach { input ->
-            val src = input.file
-            val dest = output.getContentLocation(
-                input.name,
-                input.contentTypes,
-                input.scopes,
-                Format.DIRECTORY
-            )
-            FileUtils.copyDirectory(src, dest)
-            dest.walk().forEach test@{
-                if (!it.isNeedFile()) return@test
-                logger.verbose("process dir file --> ${it.name}")
-                dirItems.push(it to it.inputStream().visit())
+            executor.exec(disLatch, onError = { throwable = it }) {
+                val src = input.file
+                val dest = output.getContentLocation(
+                    input.name,
+                    input.contentTypes,
+                    input.scopes,
+                    Format.DIRECTORY
+                )
+                if (isIncremental && input.changedFiles.isNullOrEmpty()) {
+                    logger.info("no change file -- ${src.nameWithoutExtension} , ${dest.nameWithoutExtension}")
+                    dest.walk().forEach file@{
+                        if (!it.isNeedFile()) return@file
+                        logger.verbose("process cache dir file --> ${it.name}")
+                        dirItems.lock { add(it to it.inputStream().visit()) }
+                    }
+                    return@exec
+                }
+                FileUtils.copyDirectory(src, dest)
+                dest.walk().forEach file@{
+                    if (!it.isNeedFile()) return@file
+                    logger.verbose("process dir file --> ${it.name}")
+                    dirItems.lock { add(it to it.inputStream().visit()) }
+                }
             }
         }
+        disLatch.await()
+        throwable?.also { throw it }
     }
 
-    private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>, jarItems: LinkedList<JarProcessItem>) {
+    private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>) {
         modifierManager.modify()
-        val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
         var throwable: Throwable? = null
         val dirLatch = CountDownLatch(dirItems.size)
         dirItems.forEach { pair ->
-            val dest = pair.first
-            val item = pair.second
+            val (dest, item) = pair
             executor.exec(dirLatch, onError = { throwable = it }) {
                 val cw = ClassWriter(item.classReader, 0)
                 item.classNode.accept(cw)
-                FileOutputStream(dest).use { it.write(cw.toByteArray()) }
+                dest.outputStream().use { it.write(cw.toByteArray()) }
             }
         }
         dirLatch.await()
-        throwable?.also { executor.shutdownNow();throw it }
-        val jarLatch = CountDownLatch(jarItems.size)
-        jarItems.forEach { jpi ->
-            executor.exec(jarLatch, onError = { throwable = it }) {
-                JarFile(jpi.src).use { jf ->
-                    JarOutputStream(jpi.dest.outputStream()).use { jos ->
-                        jpi.needs.forEach { need ->
-                            val item = need.second
-                            val cw = ClassWriter(item.classReader, 0)
-                            item.classNode.accept(cw)
-                            jos.putNextEntry(JarEntry(need.first.name))
-                            jos.write(cw.toByteArray())
-                            jos.closeEntry()
-                        }
-                        jpi.notNeeds.forEach { notNeed ->
-                            jos.putNextEntry(JarEntry(notNeed.name))
-                            jos.write(jf.getInputStream(notNeed).readBytes())
-                            jos.closeEntry()
-                        }
-                    }
-                }
-            }
-        }
-        jarLatch.await()
-        executor.shutdownNow()
         throwable?.also { throw it }
     }
 
@@ -174,12 +180,14 @@ class BytecodeTransform(private val project: Project) : Transform() {
         ProcessItem(cr, cv)
     }
 
-    private fun JarEntry.notNeedJarEntries(): Boolean =
-        name.endsWith(".class").not()
-                || checkAndroidRFile(name)
-                || name.startsWith("META-INF/")
-                || name.startsWith("com/ysj/lib/bytecodeutil/")
-                || extensions.notNeedJar?.invoke(name) ?: false
+    private fun JarEntry.notNeedJarEntries(): Boolean = name.notNeedJarEntries()
+
+    private fun String.notNeedJarEntries(): Boolean =
+        endsWith(".class").not()
+            || checkAndroidRFile(this)
+            || startsWith("META-INF/")
+            || startsWith("com/ysj/lib/bytecodeutil/")
+            || extensions.notNeedJar?.invoke(this) ?: false
 
     private fun File.isNeedFile(): Boolean = isFile && extension == "class"
 
@@ -204,23 +212,21 @@ class BytecodeTransform(private val project: Project) : Transform() {
         logger.quiet(">>> isIncremental: ${transformInvocation.isIncremental}")
         logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
         val startTime = System.currentTimeMillis()
-        block(
-            transformInvocation.context,
-            transformInvocation.inputs,
-            transformInvocation.referencedInputs,
-            transformInvocation.outputProvider,
-            transformInvocation.isIncremental
-        )
+        executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+        try {
+            block(
+                transformInvocation.context,
+                transformInvocation.inputs,
+                transformInvocation.referencedInputs,
+                transformInvocation.outputProvider,
+                transformInvocation.isIncremental
+            )
+        } finally {
+            executor.shutdownNow()
+        }
         logger.quiet(">>> total process time: ${System.currentTimeMillis() - startTime} ms")
         logger.quiet("=================== $PLUGIN_NAME transform end   ===================")
     }
-
-    private class JarProcessItem(
-        val src: File,
-        val dest: File,
-        val notNeeds: LinkedList<JarEntry>,
-        val needs: LinkedList<Pair<JarEntry, ProcessItem>>
-    )
 
     private class ProcessItem(
         val classReader: ClassReader,
