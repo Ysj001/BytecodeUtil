@@ -3,7 +3,6 @@ package com.ysj.lib.bytecodeutil.plugin.core
 import com.android.Version
 import com.android.build.api.transform.*
 import com.android.build.gradle.internal.pipeline.TransformManager
-import com.android.utils.FileUtils
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
@@ -15,7 +14,6 @@ import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.tree.ClassNode
 import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.*
 import java.util.concurrent.*
@@ -42,6 +40,12 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private lateinit var executor: ExecutorService
 
+    private lateinit var jarCacheFile: File
+
+    private lateinit var beforeJarCacheMap: Map<String, CacheInfo>
+
+    private val currentJarCacheMap = ConcurrentHashMap<String, CacheInfo>()
+
     override fun getName(): String = PLUGIN_NAME
 
     override fun getInputTypes(): MutableSet<QualifiedContent.ContentType> =
@@ -50,6 +54,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
     override fun getScopes(): MutableSet<in QualifiedContent.Scope> =
         TransformManager.SCOPE_FULL_PROJECT
 
+    // 原始的增量策略过于暴力，只要有一个 jar 改变 TransformInvocation#isIncremental 直接为 false
     override fun isIncremental(): Boolean = true
 
     override fun transform(transformInvocation: TransformInvocation) {
@@ -60,75 +65,128 @@ class BytecodeTransform(private val project: Project) : Transform() {
                                            outputProvider,
                                            isIncremental ->
             extensions.modifiers?.forEach {
-                modifierManager.addModifier(it as Class<out IModifier>, project, transformInvocation)
+                modifierManager.addModifier(
+                    it as Class<out IModifier>,
+                    project,
+                    transformInvocation
+                )
             }
-            if (!isIncremental) outputProvider.deleteAll()
-            val oldTime = System.currentTimeMillis()
+            var oldTime = System.currentTimeMillis()
             val dirItems = LinkedList<Pair<File, ProcessItem>>()
+            // 获取之前文件 cache 信息
+            jarCacheFile = File(context.temporaryDir, "jar-cache-mapping.json")
+            beforeJarCacheMap = if (jarCacheFile.exists()) jarCacheFile.fromJson() else emptyMap()
+            logger.lifecycle(">>> load file md5 time：${System.currentTimeMillis() - oldTime}")
+            oldTime = System.currentTimeMillis()
             // 预处理
-            inputs.forEach { process(isIncremental, it.jarInputs, it.directoryInputs, outputProvider, dirItems) }
+            inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems) }
+            beforeJarCacheMap.forEach { (key, value) ->
+                if (currentJarCacheMap[key] != null) return@forEach
+                val dest = File(value.cachePath)
+                logger.verbose("remove file -- $key , ${dest.nameWithoutExtension}")
+                if (dest.isDirectory) dest.deleteRecursively()
+                dest.delete()
+            }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
+            oldTime = System.currentTimeMillis()
             // 正式处理
             process(dirItems)
+            logger.lifecycle(">>> process time：${System.currentTimeMillis() - oldTime}")
+            // 重置文件 md5 信息
+            jarCacheFile.delete()
+            currentJarCacheMap.toJson(jarCacheFile)
         }
     }
 
     private fun process(
-        isIncremental: Boolean,
         jis: Collection<JarInput>,
         dis: Collection<DirectoryInput>,
         output: TransformOutputProvider,
         dirItems: LinkedList<Pair<File, ProcessItem>>,
     ) {
         var throwable: Throwable? = null
-        val jisLatch = CountDownLatch(jis.size)
+        val latch = CountDownLatch(jis.size + dis.size)
         jis.forEach { input ->
-            executor.exec(jisLatch, onError = { throwable = it }) {
+            executor.exec(latch, onError = { throwable = it }) {
                 val src = input.file
-                val dest = output.getContentLocation(
-                    input.name,
-                    input.contentTypes,
-                    input.scopes,
-                    Format.DIRECTORY
-                )
-                if (isIncremental && input.status == Status.NOTCHANGED) {
-                    logger.info("no change file -- ${src.nameWithoutExtension} , ${dest.nameWithoutExtension}")
-                    val startIndex = dest.absolutePath.length + 1
-                    dest.walk().forEach file@{
-                        if (it.isDirectory) return@file
-                        val fileName = it.absolutePath.substring(startIndex).replace("\\", "/")
-                        if (fileName.notNeedJarEntries()) return@file
-                        logger.verbose("process cache jar file --> ${it.name}")
-                        dirItems.lock { add(it to it.inputStream().visit()) }
-                    }
-                    return@exec
-                }
-                JarFile(src).use { jf ->
-                    jf.entries().forEach entry@{
-                        if (isDirectory) return@entry
-                        val file = File(dest, name)
-                        file.parentFile.also { if (!it.exists()) it.mkdirs() }
-                        if (file.exists()) file.delete()
-                        file.createNewFile()
-                        jf.getInputStream(this).use { jis ->
-                            if (notNeedJarEntries()) {
-                                file.outputStream().use { fos ->
+                val beforeInfo = beforeJarCacheMap[input.name]
+                val currentMd5 = src.inputStream().use { it.MD5_LOWER }
+                val noIncrementalProcessJar: (String) -> String = { type ->
+                    JarFile(src).use { jf ->
+                        var needProcessJar = false
+                        for (entry in jf.entries()) {
+                            if (entry.notNeedJarEntries()) continue
+                            needProcessJar = true
+                            break
+                        }
+                        if (!needProcessJar) {
+                            val destJar = output.getContentLocation(
+                                input.name,
+                                input.contentTypes,
+                                input.scopes,
+                                Format.JAR
+                            )
+                            destJar.delete()
+                            src.copyTo(destJar)
+                            logger.verbose("$type file -- ${src.name} , ${destJar.name}")
+                            return@use destJar.absolutePath
+                        }
+                        val destDir = output.getContentLocation(
+                            input.name,
+                            input.contentTypes,
+                            input.scopes,
+                            Format.DIRECTORY
+                        )
+                        logger.verbose("$type file -- ${src.name} , ${destDir.name}")
+                        for (entry in jf.entries()) {
+                            if (entry.isDirectory) continue
+                            val file = File(destDir, entry.name)
+                            file.delete()
+                            file.parentFile.mkdirs()
+                            file.createNewFile()
+                            jf.getInputStream(entry).use { jis ->
+                                if (entry.notNeedJarEntries()) file.outputStream().use { fos ->
                                     jis.copyTo(fos)
+                                } else {
+                                    dirItems.lock { add(file to jis.visit()) }
                                 }
-                            } else {
-                                logger.verbose("process jar2dir file --> ${file.name}")
-                                dirItems.lock { add(file to jis.visit()) }
                             }
                         }
+                        destDir.absolutePath
                     }
                 }
+                val dest: String = when {
+                    beforeInfo == null -> {
+                        // 新增的
+                        noIncrementalProcessJar("add")
+                    }
+                    beforeInfo.md5 != currentMd5 -> {
+                        // 修改的
+                        noIncrementalProcessJar("change")
+                    }
+                    else -> {
+                        val destDir = output.getContentLocation(
+                            input.name,
+                            input.contentTypes,
+                            input.scopes,
+                            Format.DIRECTORY
+                        )
+                        logger.verbose("not change file -- ${src.name} , ${destDir.name}")
+                        destDir.walk().forEach file@{
+                            if (it.isDirectory) return@file
+                            val jarEntryName = it.toRelativeString(destDir).replace("\\", "/")
+                            if (jarEntryName.notNeedJarEntries()) return@file
+                            dirItems.lock { add(it to it.inputStream().visit()) }
+                        }
+                        destDir.absolutePath
+                    }
+                }
+                currentJarCacheMap[input.name] = CacheInfo(currentMd5, dest)
             }
         }
-        jisLatch.await()
         throwable?.also { throw it }
-        val disLatch = CountDownLatch(dis.size)
         dis.forEach { input ->
-            executor.exec(disLatch, onError = { throwable = it }) {
+            executor.exec(latch, onError = { throwable = it }) {
                 val src = input.file
                 val dest = output.getContentLocation(
                     input.name,
@@ -136,40 +194,31 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     input.scopes,
                     Format.DIRECTORY
                 )
-                if (isIncremental && input.changedFiles.isNullOrEmpty()) {
-                    logger.info("no change file -- ${src.nameWithoutExtension} , ${dest.nameWithoutExtension}")
-                    dest.walk().forEach file@{
-                        if (!it.isNeedFile()) return@file
-                        logger.verbose("process cache dir file --> ${it.name}")
-                        dirItems.lock { add(it to it.inputStream().visit()) }
-                    }
-                    return@exec
-                }
-                FileUtils.copyDirectory(src, dest)
+                dest.deleteRecursively()
+                src.copyRecursively(dest)
                 dest.walk().forEach file@{
-                    if (!it.isNeedFile()) return@file
-                    logger.verbose("process dir file --> ${it.name}")
+                    if (!it.isFile || it.extension != "class") return@file
                     dirItems.lock { add(it to it.inputStream().visit()) }
                 }
             }
         }
-        disLatch.await()
+        latch.await()
         throwable?.also { throw it }
     }
 
     private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>) {
         modifierManager.modify()
         var throwable: Throwable? = null
-        val dirLatch = CountDownLatch(dirItems.size)
+        val latch = CountDownLatch(dirItems.size)
         dirItems.forEach { pair ->
             val (dest, item) = pair
-            executor.exec(dirLatch, onError = { throwable = it }) {
+            executor.exec(latch, onError = { throwable = it }) {
                 val cw = ClassWriter(item.classReader, 0)
                 item.classNode.accept(cw)
                 dest.outputStream().use { it.write(cw.toByteArray()) }
             }
         }
-        dirLatch.await()
+        latch.await()
         throwable?.also { throw it }
     }
 
@@ -189,12 +238,6 @@ class BytecodeTransform(private val project: Project) : Transform() {
             || startsWith("META-INF/")
             || startsWith("com/ysj/lib/bytecodeutil/")
             || extensions.notNeedJar?.invoke(this) ?: false
-
-    private fun File.isNeedFile(): Boolean = isFile && extension == "class"
-
-    private inline fun <T> Enumeration<T>.forEach(block: T.() -> Unit) {
-        while (hasMoreElements()) nextElement().block()
-    }
 
     private inline fun doTransform(
         transformInvocation: TransformInvocation,
@@ -233,4 +276,22 @@ class BytecodeTransform(private val project: Project) : Transform() {
         val classReader: ClassReader,
         val classNode: ClassNode,
     )
+
+    private class CacheInfo(
+        /** 原始文件的 md5 */
+        val md5: String,
+        val cachePath: String
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as CacheInfo
+            if (md5 != other.md5) return false
+            return true
+        }
+
+        override fun hashCode(): Int {
+            return md5.hashCode()
+        }
+    }
 }
