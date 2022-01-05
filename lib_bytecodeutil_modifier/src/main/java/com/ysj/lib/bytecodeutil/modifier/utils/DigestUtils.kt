@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.plugin.core
+package com.ysj.lib.bytecodeutil.modifier.utils
 
 import org.apache.commons.codec.digest.MessageDigestAlgorithms
 import java.io.IOException

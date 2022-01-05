@@ -4,8 +4,8 @@ import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
 import com.ysj.lib.bytecodeutil.api.util.BCUKeep
 import com.ysj.lib.bytecodeutil.modifier.*
+import com.ysj.lib.bytecodeutil.modifier.utils.MD5_LOWER
 import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
-import com.ysj.lib.bytecodeutil.plugin.core.MD5_LOWER
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.*
 import org.codehaus.groovy.ast.ClassHelper
