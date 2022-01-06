@@ -150,6 +150,11 @@ class BytecodeTransform(private val project: Project) : Transform() {
                         }
                         if (needProcessJar) notNeeds.forEach { it() }
                         else {
+                            jarTransformCacher.beforeInfo(input.name)?.also {
+                                val oldDest = File(it.cachePath)
+                                if (oldDest.isDirectory) oldDest.deleteRecursively()
+                                oldDest.delete()
+                            }
                             dest.value.delete()
                             src.copyTo(dest.value)
                         }
