@@ -8,6 +8,8 @@ import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.lock
 import com.ysj.lib.bytecodeutil.modifier.utils.*
+import com.ysj.lib.bytecodeutil.plugin.core.cacher.CacheStatus
+import com.ysj.lib.bytecodeutil.plugin.core.cacher.JarTransformCacher
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.ClassReader
@@ -40,11 +42,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private lateinit var executor: ExecutorService
 
-    private lateinit var jarCacheFile: File
-
-    private lateinit var beforeJarCacheMap: Map<String, CacheInfo>
-
-    private val currentJarCacheMap = ConcurrentHashMap<String, CacheInfo>()
+    private lateinit var jarTransformCacher: JarTransformCacher
 
     override fun getName(): String = PLUGIN_NAME
 
@@ -73,28 +71,20 @@ class BytecodeTransform(private val project: Project) : Transform() {
             }
             var oldTime = System.currentTimeMillis()
             val dirItems = LinkedList<Pair<File, ProcessItem>>()
-            // 获取之前文件 cache 信息
-            jarCacheFile = File(context.temporaryDir, "jar-cache-mapping.json")
-            beforeJarCacheMap = if (jarCacheFile.exists()) jarCacheFile.fromJson() else emptyMap()
+            jarTransformCacher = JarTransformCacher(context.temporaryDir, logger)
             logger.lifecycle(">>> load file md5 time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
             // 预处理
             inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems) }
-            beforeJarCacheMap.forEach { (key, value) ->
-                if (currentJarCacheMap[key] != null) return@forEach
-                val dest = File(value.cachePath)
-                logger.verbose("remove file -- $key , ${dest.nameWithoutExtension}")
-                if (dest.isDirectory) dest.deleteRecursively()
-                dest.delete()
+            jarTransformCacher.processRemoved {
+                // todo
             }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
             // 正式处理
             process(dirItems)
             logger.lifecycle(">>> process time：${System.currentTimeMillis() - oldTime}")
-            // 重置文件 md5 信息
-            jarCacheFile.delete()
-            currentJarCacheMap.toJson(jarCacheFile)
+            jarTransformCacher.refreshCache()
         }
     }
 
@@ -109,9 +99,8 @@ class BytecodeTransform(private val project: Project) : Transform() {
         jis.forEach { input ->
             executor.exec(latch, onError = { throwable = it }) {
                 val src = input.file
-                val beforeInfo = beforeJarCacheMap[input.name]
                 val currentMd5 = src.inputStream().use { it.MD5_LOWER }
-                val noIncrementalProcessJar: (String) -> String = { type ->
+                val noIncrementalProcessJar: (CacheStatus) -> String = { state ->
                     JarFile(src).use { jf ->
                         var needProcessJar = false
                         for (entry in jf.entries()) {
@@ -128,7 +117,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             )
                             destJar.delete()
                             src.copyTo(destJar)
-                            logger.verbose("$type file -- ${src.name} , ${destJar.name}")
+                            logger.verbose("$state file -- ${src.name} , ${destJar.name}")
                             return@use destJar.absolutePath
                         }
                         val destDir = output.getContentLocation(
@@ -137,7 +126,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             input.scopes,
                             Format.DIRECTORY
                         )
-                        logger.verbose("$type file -- ${src.name} , ${destDir.name}")
+                        logger.verbose("$state file -- ${src.name} , ${destDir.name}")
                         for (entry in jf.entries()) {
                             if (entry.isDirectory) continue
                             val file = File(destDir, entry.name)
@@ -155,15 +144,9 @@ class BytecodeTransform(private val project: Project) : Transform() {
                         destDir.absolutePath
                     }
                 }
-                val dest: String = when {
-                    beforeInfo == null -> {
-                        // 新增的
-                        noIncrementalProcessJar("add")
-                    }
-                    beforeInfo.md5 != currentMd5 -> {
-                        // 修改的
-                        noIncrementalProcessJar("change")
-                    }
+                val dest: String = when (val state = jarTransformCacher.state(input.name, currentMd5)) {
+                    CacheStatus.ADDED,
+                    CacheStatus.CHANGED -> noIncrementalProcessJar(state)
                     else -> {
                         val destDir = output.getContentLocation(
                             input.name,
@@ -181,7 +164,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                         destDir.absolutePath
                     }
                 }
-                currentJarCacheMap[input.name] = CacheInfo(currentMd5, dest)
+                jarTransformCacher[input.name] = JarTransformCacher.CacheInfo(currentMd5, dest)
             }
         }
         throwable?.also { throw it }
@@ -277,21 +260,4 @@ class BytecodeTransform(private val project: Project) : Transform() {
         val classNode: ClassNode,
     )
 
-    private class CacheInfo(
-        /** 原始文件的 md5 */
-        val md5: String,
-        val cachePath: String
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-            other as CacheInfo
-            if (md5 != other.md5) return false
-            return true
-        }
-
-        override fun hashCode(): Int {
-            return md5.hashCode()
-        }
-    }
 }
