@@ -100,7 +100,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             executor.exec(latch, onError = { throwable = it }) {
                 val src = input.file
                 val currentMd5 = src.inputStream().use { it.MD5_LOWER }
-                val noIncrementalProcessJar: (CacheStatus) -> String = { state ->
+                val noIncrementalProcessJar: (CacheStatus) -> File = { state ->
                     JarFile(src).use { jf ->
                         var needProcessJar = false
                         for (entry in jf.entries()) {
@@ -117,8 +117,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             )
                             destJar.delete()
                             src.copyTo(destJar)
-                            logger.verbose("$state file -- ${src.name} , ${destJar.name}")
-                            return@use destJar.absolutePath
+                            return@use destJar
                         }
                         val destDir = output.getContentLocation(
                             input.name,
@@ -126,7 +125,6 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             input.scopes,
                             Format.DIRECTORY
                         )
-                        logger.verbose("$state file -- ${src.name} , ${destDir.name}")
                         for (entry in jf.entries()) {
                             if (entry.isDirectory) continue
                             val file = File(destDir, entry.name)
@@ -141,10 +139,11 @@ class BytecodeTransform(private val project: Project) : Transform() {
                                 }
                             }
                         }
-                        destDir.absolutePath
+                        destDir
                     }
                 }
-                val dest: String = when (val state = jarTransformCacher.state(input.name, currentMd5)) {
+                val state = jarTransformCacher.state(input.name, currentMd5)
+                val dest: File = when (state) {
                     CacheStatus.ADDED,
                     CacheStatus.CHANGED -> noIncrementalProcessJar(state)
                     else -> {
@@ -154,17 +153,17 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             input.scopes,
                             Format.DIRECTORY
                         )
-                        logger.verbose("not change file -- ${src.name} , ${destDir.name}")
                         destDir.walk().forEach file@{
                             if (it.isDirectory) return@file
                             val jarEntryName = it.toRelativeString(destDir).replace("\\", "/")
                             if (jarEntryName.notNeedJarEntries()) return@file
                             dirItems.lock { add(it to it.inputStream().visit()) }
                         }
-                        destDir.absolutePath
+                        destDir
                     }
                 }
-                jarTransformCacher[input.name] = JarTransformCacher.CacheInfo(currentMd5, dest)
+                logger.verbose("$state file -- ${src.name} , ${dest.name}")
+                jarTransformCacher[input.name] = JarTransformCacher.CacheInfo(currentMd5, dest.absolutePath)
             }
         }
         throwable?.also { throw it }
