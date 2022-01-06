@@ -71,19 +71,24 @@ class BytecodeTransform(private val project: Project) : Transform() {
                 )
             }
             var oldTime = System.currentTimeMillis()
-            val dirItems = LinkedList<Pair<File, ProcessItem>>()
+            val items = object : LinkedList<ProcessItem>() {
+                override fun add(element: ProcessItem): Boolean {
+                    modifierManager.scan(element.classNode)
+                    return super.add(element)
+                }
+            }
             jarTransformCacher = JarTransformCacher(context.temporaryDir, logger)
             logger.lifecycle(">>> load file md5 time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
             // 预处理
-            inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems) }
+            inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, items) }
             jarTransformCacher.processRemoved {
                 // todo
             }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
             // 正式处理
-            process(dirItems)
+            process(items)
             logger.lifecycle(">>> process time：${System.currentTimeMillis() - oldTime}")
             jarTransformCacher.refreshCache()
         }
@@ -93,7 +98,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
         jis: Collection<JarInput>,
         dis: Collection<DirectoryInput>,
         output: TransformOutputProvider,
-        dirItems: LinkedList<Pair<File, ProcessItem>>,
+        items: MutableCollection<ProcessItem>,
     ) {
         var throwable: Throwable? = null
         val latch = CountDownLatch(jis.size + dis.size)
@@ -139,7 +144,8 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             }
                             needProcessJar = true
                             jf.getInputStream(entry).use { jis ->
-                                dirItems.lock { add(file(entry) to jis.visit()) }
+                                val item = jis.visit(file(entry))
+                                items.lock { add(item) }
                             }
                         }
                         if (needProcessJar) notNeeds.forEach { it() }
@@ -165,7 +171,8 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             if (it.isDirectory) return@file
                             val jarEntryName = it.toRelativeString(destDir).replace("\\", "/")
                             if (jarEntryName.notNeedJarEntries()) return@file
-                            dirItems.lock { add(it to it.inputStream().visit()) }
+                            val item = it.inputStream().visit(it)
+                            items.lock { add(item) }
                         }
                         destDir
                     }
@@ -188,7 +195,8 @@ class BytecodeTransform(private val project: Project) : Transform() {
                 src.copyRecursively(dest)
                 dest.walk().forEach file@{
                     if (!it.isFile || it.extension != "class") return@file
-                    dirItems.lock { add(it to it.inputStream().visit()) }
+                    val item = it.inputStream().visit(it)
+                    items.lock { add(item) }
                 }
             }
         }
@@ -196,28 +204,26 @@ class BytecodeTransform(private val project: Project) : Transform() {
         throwable?.also { throw it }
     }
 
-    private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>) {
+    private fun process(items: Collection<ProcessItem>) {
         modifierManager.modify()
         var throwable: Throwable? = null
-        val latch = CountDownLatch(dirItems.size)
-        dirItems.forEach { pair ->
-            val (dest, item) = pair
+        val latch = CountDownLatch(items.size)
+        items.forEach { item ->
             executor.exec(latch, onError = { throwable = it }) {
                 val cw = ClassWriter(item.classReader, 0)
                 item.classNode.accept(cw)
-                dest.outputStream().use { it.write(cw.toByteArray()) }
+                item.dest.outputStream().use { it.write(cw.toByteArray()) }
             }
         }
         latch.await()
         throwable?.also { throw it }
     }
 
-    private fun InputStream.visit() = use {
+    private fun InputStream.visit(dest: File) = use {
         val cr = ClassReader(it)
         val cv = ClassNode()
         cr.accept(cv, 0)
-        modifierManager.scan(cv)
-        ProcessItem(cr, cv)
+        ProcessItem(dest, cr, cv)
     }
 
     private fun JarEntry.notNeedJarEntries(): Boolean = name.notNeedJarEntries()
@@ -263,6 +269,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
     }
 
     private class ProcessItem(
+        val dest: File,
         val classReader: ClassReader,
         val classNode: ClassNode,
     )
