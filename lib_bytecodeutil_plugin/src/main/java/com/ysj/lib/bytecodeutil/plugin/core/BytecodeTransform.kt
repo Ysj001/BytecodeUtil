@@ -21,6 +21,7 @@ import java.util.*
 import java.util.concurrent.*
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
+import kotlin.collections.ArrayList
 
 /**
  *
@@ -100,52 +101,59 @@ class BytecodeTransform(private val project: Project) : Transform() {
             executor.exec(latch, onError = { throwable = it }) {
                 val src = input.file
                 val currentMd5 = src.inputStream().use { it.MD5_LOWER }
-                val noIncrementalProcessJar: (CacheStatus) -> File = { state ->
+                val noIncrementalProcessJar: () -> File = {
                     JarFile(src).use { jf ->
                         var needProcessJar = false
-                        for (entry in jf.entries()) {
-                            if (entry.notNeedJarEntries()) continue
-                            needProcessJar = true
-                            break
-                        }
-                        if (!needProcessJar) {
-                            val destJar = output.getContentLocation(
+                        val dest = lazy(LazyThreadSafetyMode.NONE) {
+                            if (needProcessJar) output.getContentLocation(
+                                input.name,
+                                input.contentTypes,
+                                input.scopes,
+                                Format.DIRECTORY
+                            ) else output.getContentLocation(
                                 input.name,
                                 input.contentTypes,
                                 input.scopes,
                                 Format.JAR
                             )
-                            destJar.delete()
-                            src.copyTo(destJar)
-                            return@use destJar
                         }
-                        val destDir = output.getContentLocation(
-                            input.name,
-                            input.contentTypes,
-                            input.scopes,
-                            Format.DIRECTORY
-                        )
-                        for (entry in jf.entries()) {
-                            if (entry.isDirectory) continue
-                            val file = File(destDir, entry.name)
-                            file.delete()
-                            file.parentFile.mkdirs()
-                            file.createNewFile()
-                            jf.getInputStream(entry).use { jis ->
-                                if (entry.notNeedJarEntries()) file.outputStream().use { fos ->
-                                    jis.copyTo(fos)
-                                } else {
-                                    dirItems.lock { add(file to jis.visit()) }
-                                }
+                        val file: (JarEntry) -> File = { entry ->
+                            File(dest.value, entry.name).also {
+                                it.delete()
+                                it.parentFile.mkdirs()
+                                it.createNewFile()
                             }
                         }
-                        destDir
+                        val notNeeds = ArrayList<() -> Unit>(jf.size())
+                        for (entry in jf.entries()) {
+                            if (entry.isDirectory) continue
+                            if (entry.notNeedJarEntries()) {
+                                if (needProcessJar) jf.getInputStream(entry).use { jis ->
+                                    file(entry).outputStream().use { jis.copyTo(it) }
+                                } else notNeeds.add {
+                                    jf.getInputStream(entry).use { jis ->
+                                        file(entry).outputStream().use { jis.copyTo(it) }
+                                    }
+                                }
+                                continue
+                            }
+                            needProcessJar = true
+                            jf.getInputStream(entry).use { jis ->
+                                dirItems.lock { add(file(entry) to jis.visit()) }
+                            }
+                        }
+                        if (needProcessJar) notNeeds.forEach { it() }
+                        else {
+                            dest.value.delete()
+                            src.copyTo(dest.value)
+                        }
+                        dest.value
                     }
                 }
                 val state = jarTransformCacher.state(input.name, currentMd5)
                 val dest: File = when (state) {
                     CacheStatus.ADDED,
-                    CacheStatus.CHANGED -> noIncrementalProcessJar(state)
+                    CacheStatus.CHANGED -> noIncrementalProcessJar()
                     else -> {
                         val destDir = output.getContentLocation(
                             input.name,
