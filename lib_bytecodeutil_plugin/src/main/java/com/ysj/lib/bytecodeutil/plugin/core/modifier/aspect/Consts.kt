@@ -5,6 +5,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.CallingPoint
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.api.aspect.Pointcut
 import org.objectweb.asm.Type
+import org.objectweb.asm.tree.ClassNode
 
 /*
  * 定义常量
@@ -15,25 +16,27 @@ import org.objectweb.asm.Type
 
 // =============== @Aspect =================
 
-val ANNOTATION_ASPECT by lazy { Type.getType(Aspect::class.java) }
-val ANNOTATION_ASPECT_DESC by lazy { ANNOTATION_ASPECT.descriptor }
+val ANNOTATION_ASPECT: Type by lazy { Type.getType(Aspect::class.java) }
+val ANNOTATION_ASPECT_DESC: String by lazy { ANNOTATION_ASPECT.descriptor }
 
+/** 检查 [ClassNode] 上是否有 [Aspect]，有则返回 true */
+val ClassNode.hasAspectAnnotation get() = invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } != null
 // =============== @Pointcut =================
 
-val ANNOTATION_POINTCUT by lazy { Type.getType(Pointcut::class.java) }
-val ANNOTATION_POINTCUT_DESC by lazy { ANNOTATION_POINTCUT.descriptor }
+val ANNOTATION_POINTCUT: Type by lazy { Type.getType(Pointcut::class.java) }
+val ANNOTATION_POINTCUT_DESC: String by lazy { ANNOTATION_POINTCUT.descriptor }
 
 // =============== JoinPoint =================
 
-val joinPointType by lazy { Type.getType(JoinPoint::class.java) }
-val joinPointDesc by lazy { joinPointType.descriptor }
-val joinPointInternalName by lazy { joinPointType.internalName }
+val joinPointType: Type by lazy { Type.getType(JoinPoint::class.java) }
+val joinPointDesc: String by lazy { joinPointType.descriptor }
+val joinPointInternalName: String by lazy { joinPointType.internalName }
 
 // =============== CallingPoint =================
 
-val callingPointType by lazy { Type.getType(CallingPoint::class.java) }
-val callingPointDesc by lazy { callingPointType.descriptor }
-val callingPointInternalName by lazy { callingPointType.internalName }
+val callingPointType: Type by lazy { Type.getType(CallingPoint::class.java) }
+val callingPointDesc: String by lazy { callingPointType.descriptor }
+val callingPointInternalName: String by lazy { callingPointType.internalName }
 
 /** 切面类实例的 FIELD 名 */
 const val ASPECT_CLASS_INSTANCE = "INSTANCE"
