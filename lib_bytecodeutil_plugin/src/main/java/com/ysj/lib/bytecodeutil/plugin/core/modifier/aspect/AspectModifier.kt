@@ -5,6 +5,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.*
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.params
+import com.ysj.lib.bytecodeutil.plugin.core.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
@@ -47,66 +48,23 @@ class AspectModifier(
 
     override fun scan(classNode: ClassNode) {
         // 过滤所有没有 Aspect 注解的类
-        if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } == null) return
-        classNode.methods.forEach {
-            // 查找 Pointcut 注解的方法
-            val pointCutAnnotation = it.invisibleAnnotations
-                ?.find { anode -> anode.desc == ANNOTATION_POINTCUT_DESC }
-                ?: return@forEach
-            // 收集 Pointcut 注解的参数
-            val params = pointCutAnnotation.params()
-            val orgTarget = params[Pointcut::target.name] as String
-            val target = orgTarget.substringAfter(":")
-            val targetType = orgTarget.substringBefore(":")
-            val collection = when (targetType) {
+        if (!classNode.hasAspectAnnotation) return
+        classNode.analysis().forEach { bean ->
+            val collection = when (val targetType = bean.targetType) {
                 PointcutBean.TARGET_CLASS -> targetClass
                 PointcutBean.TARGET_SUPER_CLASS -> targetSuperClass
                 PointcutBean.TARGET_INTERFACE -> targetInterface
                 PointcutBean.TARGET_ANNOTATION -> targetAnnotation
-                else -> throw RuntimeException("${Pointcut::class.java.simpleName} 中 target 前缀不合法：${orgTarget}")
+                else -> throw RuntimeException(
+                    """
+                    ${Pointcut::class.java.simpleName} 中 target 前缀不合法：${targetType}
+                    class name: ${classNode.name}
+                    fun name: ${bean.funName}
+                    """.trimIndent()
+                )
             }
-            val pointcutBean = PointcutBean(
-                aspectClassName = classNode.name,
-                aspectFunName = it.name,
-                aspectFunDesc = it.desc,
-                target = target,
-                targetType = targetType,
-                funName = params.getOrDefault(Pointcut::funName.name, ".*.") as String,
-                funDesc = params.getOrDefault(Pointcut::funDesc.name, ".*.") as String,
-                position = params[Pointcut::position.name] as Int,
-            ).also { pcb ->
-                logger.verbose("====== method: ${it.name} ======\n$pcb")
-            }
-            // 检查方法参数是否合法
-            Type.getArgumentTypes(it.desc).forEach checkArgs@{ type ->
-                val typeClass = type.className
-                when (val p = pointcutBean.position) {
-                    POSITION_START, POSITION_RETURN -> if (typeClass != JoinPoint::class.java.name) {
-                        throw RuntimeException(
-                            """
-                            检测到 ${classNode.name} 中方法 ${it.name} ${it.desc} 的参数不合法
-                            该 position: $p 支持的参数为：
-                            1. ${JoinPoint::class.java.simpleName}
-                            2. 无参数
-                            """.trimIndent()
-                        )
-                    }
-                    POSITION_CALL -> {
-                        if (typeClass == JoinPoint::class.java.name) return@checkArgs
-                        if (typeClass == CallingPoint::class.java.name) return@checkArgs
-                        throw RuntimeException(
-                            """
-                            检测到 ${classNode.name} 中方法 ${it.name} ${it.desc} 的参数不合法
-                            该 position: $p 支持的参数为：
-                            1. ${JoinPoint::class.java.name}
-                            2. ${CallingPoint::class.java.name}
-                            3. 无参数
-                            """.trimIndent()
-                        )
-                    }
-                }
-            }
-            collection.add(pointcutBean)
+            bean.checkPositionAndMethodArgs()
+            collection.add(bean)
         }
     }
 
@@ -119,7 +77,7 @@ class AspectModifier(
             // 注意这里没加锁，内部不要多线程修改
             executor.exec(latch, onError = { throwable = it }) {
                 val classNode = it.value
-                if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } != null) {
+                if (classNode.hasAspectAnnotation) {
                     handleAspect(classNode)
                     return@exec
                 }
@@ -224,6 +182,26 @@ class AspectModifier(
                 mn.invisibleAnnotations?.forEach { if (Pattern.matches(pb.target, it.desc)) block(pb, mn) }
             }
         }
+    }
+
+    private fun ClassNode.analysis() = methods.asSequence().mapNotNull {
+        // 查找 Pointcut 注解的方法
+        val pointCutAnnotation = it.invisibleAnnotations
+            ?.find { anode -> anode.desc == ANNOTATION_POINTCUT_DESC }
+            ?: return@mapNotNull null
+        // 获取 Pointcut 注解的参数
+        val params = pointCutAnnotation.params()
+        val orgTarget = params[Pointcut::target.name] as String
+        PointcutBean(
+            aspectClassName = name,
+            aspectFunName = it.name,
+            aspectFunDesc = it.desc,
+            target = orgTarget.substringAfter(":"),
+            targetType = orgTarget.substringBefore(":"),
+            funName = params.getOrDefault(Pointcut::funName.name, ".*.") as String,
+            funDesc = params.getOrDefault(Pointcut::funDesc.name, ".*.") as String,
+            position = params[Pointcut::position.name] as Int,
+        )
     }
 
     private fun PointcutBean.matchInterface(cn: ClassNode, mn: MethodNode): Boolean {
