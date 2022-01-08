@@ -8,8 +8,8 @@ import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.lock
 import com.ysj.lib.bytecodeutil.modifier.utils.*
-import com.ysj.lib.bytecodeutil.plugin.core.cacher.CacheStatus
-import com.ysj.lib.bytecodeutil.plugin.core.cacher.JarTransformCacher
+import com.ysj.lib.bytecodeutil.plugin.core.cache.CacheStatus
+import com.ysj.lib.bytecodeutil.plugin.core.cache.JarTransformCache
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.ClassReader
@@ -43,7 +43,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private lateinit var executor: ExecutorService
 
-    private lateinit var jarTransformCacher: JarTransformCacher
+    private lateinit var jarTransformCache: JarTransformCache
 
     override fun getName(): String = PLUGIN_NAME
 
@@ -77,12 +77,12 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     return super.add(element)
                 }
             }
-            jarTransformCacher = JarTransformCacher(context.temporaryDir, logger)
+            jarTransformCache = JarTransformCache(context.temporaryDir, logger)
             logger.lifecycle(">>> load file md5 time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
             // 预处理
             inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, items) }
-            jarTransformCacher.processRemoved {
+            jarTransformCache.processRemoved {
                 // todo
             }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
@@ -90,7 +90,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             // 正式处理
             process(items)
             logger.lifecycle(">>> process time：${System.currentTimeMillis() - oldTime}")
-            jarTransformCacher.refreshCache()
+            jarTransformCache.refreshCache()
         }
     }
 
@@ -150,7 +150,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                         }
                         if (needProcessJar) notNeeds.forEach { it() }
                         else {
-                            jarTransformCacher.beforeInfo(input.name)?.also {
+                            jarTransformCache.beforeInfo(input.name)?.also {
                                 val oldDest = File(it.cachePath)
                                 if (oldDest.isDirectory) oldDest.deleteRecursively()
                                 oldDest.delete()
@@ -161,7 +161,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                         dest.value
                     }
                 }
-                val state = jarTransformCacher.state(input.name, currentMd5)
+                val state = jarTransformCache.state(input.name, currentMd5)
                 val dest: File = when (state) {
                     CacheStatus.ADDED,
                     CacheStatus.CHANGED -> noIncrementalProcessJar()
@@ -183,7 +183,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     }
                 }
                 logger.verbose("$state file -- ${src.name} , ${dest.name}")
-                jarTransformCacher[input.name] = JarTransformCacher.CacheInfo(currentMd5, dest.absolutePath)
+                jarTransformCache[input.name] = JarTransformCache.CacheInfo(currentMd5, dest.absolutePath)
             }
         }
         throwable?.also { throw it }

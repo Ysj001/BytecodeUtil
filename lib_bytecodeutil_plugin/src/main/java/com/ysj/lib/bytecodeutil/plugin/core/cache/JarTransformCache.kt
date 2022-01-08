@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.plugin.core.cacher
+package com.ysj.lib.bytecodeutil.plugin.core.cache
 
 import com.ysj.lib.bytecodeutil.modifier.utils.fromJson
 import com.ysj.lib.bytecodeutil.modifier.utils.toJson
@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
  * @author Ysj
  * Create time: 2022/1/6 20:42
  */
-class JarTransformCacher(cacheDir: File, private val logger: YLogger) {
+class JarTransformCache(cacheDir: File, private val logger: YLogger) {
 
     private val jarCacheFile: File = File(cacheDir, "jar-cache-mapping.json")
 
