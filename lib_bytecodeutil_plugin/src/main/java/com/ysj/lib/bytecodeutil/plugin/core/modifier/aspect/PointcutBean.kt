@@ -1,5 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
+import com.ysj.lib.bytecodeutil.api.aspect.*
 import org.objectweb.asm.Type
 import java.io.Serializable
 
@@ -49,5 +50,47 @@ class PointcutBean(
                 funDesc='$funDesc'
                 position=$position
                 """.trimIndent()
+    }
+
+    /**
+     * 检查 [position] 和 [aspectFunDesc] 是否合法
+     */
+    fun checkPositionAndMethodArgs() {
+        val argumentTypes = Type.getArgumentTypes(aspectFunDesc)
+        when (position) {
+            POSITION_START, POSITION_RETURN -> {
+                if (argumentTypes.isEmpty()) return
+                if (argumentTypes[0].className == JoinPoint::class.java.name) return
+                throw RuntimeException(
+                    """
+                    检测到 $aspectClassName 中方法 $aspectFunName$aspectFunDesc 的参数不合法
+                    该 position: $position 支持的参数为：
+                    1. 无参数
+                    2. args index 0: ${JoinPoint::class.java.simpleName}
+                    """.trimIndent()
+                )
+            }
+            POSITION_CALL -> {
+                if (argumentTypes.isEmpty()) return
+                if (argumentTypes[0].className == JoinPoint::class.java.name &&
+                    argumentTypes[1].className == CallingPoint::class.java.name) return
+                throw RuntimeException(
+                    """
+                    检测到 $aspectClassName 中方法 $aspectFunName$aspectFunDesc 的参数不合法
+                    该 position: $position 支持的参数为：
+                    1. 无参数
+                    2. args index 0: ${JoinPoint::class.java.name}
+                    3. args index 1: ${CallingPoint::class.java.name}
+                    """.trimIndent()
+                )
+            }
+            else -> throw RuntimeException(
+                """
+                position 不合法：$position
+                class name: $aspectClassName
+                fun name: $aspectFunName
+                """.trimIndent()
+            )
+        }
     }
 }
