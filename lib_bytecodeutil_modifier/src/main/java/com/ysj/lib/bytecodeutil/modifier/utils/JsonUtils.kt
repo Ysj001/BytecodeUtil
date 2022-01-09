@@ -1,6 +1,9 @@
 package com.ysj.lib.bytecodeutil.modifier.utils
 
+import com.google.gson.ExclusionStrategy
+import com.google.gson.FieldAttributes
 import com.google.gson.GsonBuilder
+import com.google.gson.annotations.Expose
 import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.io.Reader
@@ -13,6 +16,16 @@ import java.io.Reader
  */
 
 val GSON = GsonBuilder()
+    .addSerializationExclusionStrategy(object : ExclusionStrategy {
+        override fun shouldSkipClass(clazz: Class<*>?) = false
+        override fun shouldSkipField(fa: FieldAttributes?) =
+            fa?.getAnnotation(Expose::class.java)?.run { !serialize } ?: false
+    })
+    .addDeserializationExclusionStrategy(object : ExclusionStrategy {
+        override fun shouldSkipClass(clazz: Class<*>?) = false
+        override fun shouldSkipField(fa: FieldAttributes?) =
+            fa?.getAnnotation(Expose::class.java)?.run { !deserialize } ?: false
+    })
     .setPrettyPrinting()
     .create()
 
