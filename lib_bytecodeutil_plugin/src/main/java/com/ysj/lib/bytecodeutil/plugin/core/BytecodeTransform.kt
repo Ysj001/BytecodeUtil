@@ -5,10 +5,10 @@ import com.android.build.api.transform.*
 import com.android.build.gradle.internal.pipeline.TransformManager
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
+import com.ysj.lib.bytecodeutil.modifier.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.lock
 import com.ysj.lib.bytecodeutil.modifier.utils.*
-import com.ysj.lib.bytecodeutil.plugin.core.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.plugin.core.cache.JarTransformCache
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import org.gradle.api.Project
@@ -90,7 +90,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             // 正式处理
             process(items)
             logger.lifecycle(">>> process time：${System.currentTimeMillis() - oldTime}")
-            jarTransformCache.refreshCache()
+            jarTransformCache.saveCache()
         }
     }
 
@@ -150,7 +150,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                         }
                         if (needProcessJar) notNeeds.forEach { it() }
                         else {
-                            jarTransformCache.beforeInfo(input.name)?.also {
+                            jarTransformCache.beforeValue(input.name)?.also {
                                 val oldDest = File(it.cachePath)
                                 if (oldDest.isDirectory) oldDest.deleteRecursively()
                                 oldDest.delete()

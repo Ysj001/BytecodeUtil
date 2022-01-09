@@ -1,7 +1,8 @@
 package com.ysj.lib.bytecodeutil.plugin.core.cache
 
+import com.ysj.lib.bytecodeutil.modifier.cache.AbsCache
+import com.ysj.lib.bytecodeutil.modifier.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.modifier.utils.fromJson
-import com.ysj.lib.bytecodeutil.modifier.utils.toJson
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -12,21 +13,13 @@ import java.util.concurrent.ConcurrentHashMap
  * @author Ysj
  * Create time: 2022/1/6 20:42
  */
-class JarTransformCache(cacheDir: File, private val logger: YLogger) {
+class JarTransformCache(cacheDir: File, private val logger: YLogger) : AbsCache<JarTransformCache.CacheInfo>() {
 
-    private val jarCacheFile: File = File(cacheDir, "jar-cache-mapping.json")
+    override val cacheFile: File = File(cacheDir, "jar-cache-mapping.json")
 
-    private var beforeJarCacheMap: Map<String, CacheInfo> = if (jarCacheFile.exists()) jarCacheFile.fromJson() else emptyMap()
+    override var beforeCache: MutableMap<String, CacheInfo> = if (cacheFile.exists()) cacheFile.fromJson() else mutableMapOf()
 
-    private val currentJarCacheMap = ConcurrentHashMap<String, CacheInfo>()
-
-    operator fun set(key: String, value: CacheInfo) {
-        currentJarCacheMap[key] = value
-    }
-
-    operator fun get(key: String): CacheInfo? = currentJarCacheMap[key]
-
-    fun beforeInfo(key: String): CacheInfo? = beforeJarCacheMap[key]
+    override val currentCache = ConcurrentHashMap<String, CacheInfo>()
 
     /**
      * 获取 [CacheStatus]，不会有 [CacheStatus.REMOVED]。
@@ -36,7 +29,7 @@ class JarTransformCache(cacheDir: File, private val logger: YLogger) {
      * @param md5 jar 文件 md5
      */
     fun state(key: String, md5: String): CacheStatus {
-        val beforeInfo = beforeInfo(key)
+        val beforeInfo = beforeValue(key)
         return when {
             beforeInfo == null -> CacheStatus.ADDED
             beforeInfo.md5 != md5 -> CacheStatus.CHANGED
@@ -44,23 +37,13 @@ class JarTransformCache(cacheDir: File, private val logger: YLogger) {
         }
     }
 
-    fun processRemoved(block: (CacheInfo) -> Unit): Unit = beforeJarCacheMap.forEach { (key, value) ->
-        if (currentJarCacheMap[key] != null) return@forEach
+    fun processRemoved(block: (CacheInfo) -> Unit): Unit = beforeCache.forEach { (key, value) ->
+        if (currentCache[key] != null) return@forEach
         val dest = File(value.cachePath)
         logger.verbose("remove file -- $key , ${dest.nameWithoutExtension}")
         block(value)
         if (dest.isDirectory) dest.deleteRecursively()
         dest.delete()
-    }
-
-    /**
-     * 将缓存设置成新的
-     */
-    fun refreshCache() {
-        jarCacheFile.delete()
-        currentJarCacheMap.toJson(jarCacheFile)
-        beforeJarCacheMap = currentJarCacheMap
-        currentJarCacheMap.clear()
     }
 
     class CacheInfo(
