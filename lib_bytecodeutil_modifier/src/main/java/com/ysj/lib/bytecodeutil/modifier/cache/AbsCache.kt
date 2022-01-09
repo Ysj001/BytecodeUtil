@@ -17,6 +17,9 @@ abstract class AbsCache<CacheValue> {
 
     protected abstract val currentCache: MutableMap<String, CacheValue>
 
+    /** 有缓存返回 true */
+    open val hasCache: Boolean get() = beforeCache.isNotEmpty()
+
     /**
      * 从 [currentCache] 获取缓存
      */
