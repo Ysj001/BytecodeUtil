@@ -72,8 +72,17 @@ class PointcutBean(
             }
             POSITION_CALL -> {
                 if (argumentTypes.isEmpty()) return
-                if (argumentTypes[0].className == JoinPoint::class.java.name &&
-                    argumentTypes[1].className == CallingPoint::class.java.name) return
+                when (argumentTypes.size) {
+                    0 -> return
+                    1 -> if (
+                        argumentTypes[0].className == JoinPoint::class.java.name ||
+                        argumentTypes[0].className == CallingPoint::class.java.name
+                    ) return
+                    2 -> if (
+                        argumentTypes[0].className == JoinPoint::class.java.name &&
+                        argumentTypes[1].className == CallingPoint::class.java.name
+                    ) return
+                }
                 throw RuntimeException(
                     """
                     检测到 $aspectClassName 中方法 $aspectFunName$aspectFunDesc 的参数不合法
