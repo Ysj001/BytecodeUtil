@@ -37,12 +37,11 @@ class JarTransformCache(cacheDir: File, private val logger: YLogger) : AbsCache<
         }
     }
 
-    fun processRemoved(block: (CacheInfo) -> Unit): Unit = beforeCache.forEach { (key, value) ->
+    fun processRemoved(block: (File) -> Unit): Unit = beforeCache.forEach { (key, value) ->
         if (currentCache[key] != null) return@forEach
         val dest = File(value.cachePath)
-        logger.verbose("remove file -- $key , ${dest.nameWithoutExtension}")
-        block(value)
-        if (dest.isDirectory) dest.deleteRecursively()
+        if (!dest.exists()) return@forEach
+        if (dest.isDirectory) dest.walkBottomUp().forEach { block(it);it.delete() }
         dest.delete()
     }
 

@@ -39,11 +39,16 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val modifierManager = ModifierManager(this)
+    private lateinit var modifierManager: ModifierManager
 
     private lateinit var executor: ExecutorService
 
     private lateinit var jarTransformCache: JarTransformCache
+
+    @Volatile
+    private var isIncremental: Boolean = true
+
+    private lateinit var notIncrementalProcess: ArrayList<() -> Unit>
 
     override fun getName(): String = PLUGIN_NAME
 
@@ -54,15 +59,15 @@ class BytecodeTransform(private val project: Project) : Transform() {
         TransformManager.SCOPE_FULL_PROJECT
 
     // 原始的增量策略过于暴力，只要有一个 jar 改变 TransformInvocation#isIncremental 直接为 false
-    override fun isIncremental(): Boolean = true
+    override fun isIncremental(): Boolean = false
 
     override fun transform(transformInvocation: TransformInvocation) {
         super.transform(transformInvocation)
         doTransform(transformInvocation) { context,
                                            inputs,
-                                           referencedInputs,
+                                           _,
                                            outputProvider,
-                                           isIncremental ->
+                                           _ ->
             extensions.modifiers?.forEach {
                 modifierManager.addModifier(
                     it as Class<out IModifier>,
@@ -73,17 +78,31 @@ class BytecodeTransform(private val project: Project) : Transform() {
             var oldTime = System.currentTimeMillis()
             val items = object : LinkedList<ProcessItem>() {
                 override fun add(element: ProcessItem): Boolean {
-                    modifierManager.scan(element.classNode)
+                    modifierManager.scan(element.dest, element.classNode)
                     return super.add(element)
                 }
             }
             jarTransformCache = JarTransformCache(context.temporaryDir, logger)
-            logger.lifecycle(">>> load file md5 time：${System.currentTimeMillis() - oldTime}")
+            notIncrementalProcess = if (!jarTransformCache.hasCache) arrayListOf() else ArrayList(inputs.sumBy {
+                it.jarInputs.size + it.directoryInputs.size
+            })
+            logger.lifecycle(">>> load cache time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
             // 预处理
             inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, items) }
             jarTransformCache.processRemoved {
-                // todo
+                if (isIncremental && !modifierManager.canIncremental(it, CacheStatus.REMOVED)) {
+                    isIncremental = false
+                }
+            }
+            if (!isIncremental) {
+                var throwable: Throwable? = null
+                val notIncrementalProcessLatch = CountDownLatch(notIncrementalProcess.size)
+                notIncrementalProcess.forEach { action ->
+                    executor.exec(notIncrementalProcessLatch, onError = { throwable = it }, action)
+                }
+                notIncrementalProcessLatch.await()
+                throwable?.also { throw it }
             }
             logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
             oldTime = System.currentTimeMillis()
@@ -106,8 +125,8 @@ class BytecodeTransform(private val project: Project) : Transform() {
             executor.exec(latch, onError = { throwable = it }) {
                 val src = input.file
                 val currentMd5 = src.inputStream().use { it.MD5_LOWER }
-                val noIncrementalProcessJar: () -> File = {
-                    JarFile(src).use { jf ->
+                val noIncrementalProcessJar: () -> Unit = {
+                    val dest: File = JarFile(src).use { jf ->
                         var needProcessJar = false
                         val dest = lazy(LazyThreadSafetyMode.NONE) {
                             if (needProcessJar) output.getContentLocation(
@@ -144,63 +163,74 @@ class BytecodeTransform(private val project: Project) : Transform() {
                             }
                             needProcessJar = true
                             jf.getInputStream(entry).use { jis ->
-                                val item = jis.visit(file(entry))
+                                val destFile = file(entry)
+                                val item = jis.visit(destFile)
                                 items.lock { add(item) }
                             }
                         }
                         if (needProcessJar) notNeeds.forEach { it() }
-                        else {
-                            jarTransformCache.beforeValue(input.name)?.also {
-                                val oldDest = File(it.cachePath)
+                        else src.copyTo(dest.value, true)
+                        dest.value
+                    }
+                    logger.verbose("no incremental processJar -- ${src.name} , ${dest.name}")
+                    jarTransformCache[input.name] = JarTransformCache.CacheInfo(currentMd5, dest.absolutePath)
+                }
+                when (jarTransformCache.state(input.name, currentMd5)) {
+                    CacheStatus.ADDED -> noIncrementalProcessJar()
+                    CacheStatus.CHANGED -> {
+                        // 按照移除老的再添加新的处理
+                        jarTransformCache.beforeValue(input.name)?.also { info ->
+                            val oldDest = File(info.cachePath)
+                            if (!oldDest.exists()) return@also
+                            if (oldDest.isDirectory) oldDest.walkBottomUp().forEach {
+                                if (isIncremental && !modifierManager.canIncremental(it, CacheStatus.REMOVED)) {
+                                    isIncremental = false
+                                }
+                                it.delete()
+                            }
+                            oldDest.delete()
+                        }
+                        noIncrementalProcessJar()
+                    }
+                    else -> {
+                        val action: () -> Unit = {
+                            jarTransformCache.beforeValue(input.name)?.also { info ->
+                                val oldDest = File(info.cachePath)
+                                if (!oldDest.exists()) return@also
                                 if (oldDest.isDirectory) oldDest.deleteRecursively()
                                 oldDest.delete()
                             }
-                            dest.value.delete()
-                            src.copyTo(dest.value)
+                            noIncrementalProcessJar()
                         }
-                        dest.value
+                        if (!isIncremental) action() else notIncrementalProcess.lock { add(action) }
                     }
                 }
-                val state = jarTransformCache.state(input.name, currentMd5)
-                val dest: File = when (state) {
-                    CacheStatus.ADDED,
-                    CacheStatus.CHANGED -> noIncrementalProcessJar()
-                    else -> {
-                        val destDir = output.getContentLocation(
-                            input.name,
-                            input.contentTypes,
-                            input.scopes,
-                            Format.DIRECTORY
-                        )
-                        destDir.walk().forEach file@{
-                            if (it.isDirectory) return@file
-                            val jarEntryName = it.toRelativeString(destDir).replace("\\", "/")
-                            if (jarEntryName.notNeedJarEntries()) return@file
-                            val item = it.inputStream().visit(it)
-                            items.lock { add(item) }
-                        }
-                        destDir
-                    }
-                }
-                logger.verbose("$state file -- ${src.name} , ${dest.name}")
-                jarTransformCache[input.name] = JarTransformCache.CacheInfo(currentMd5, dest.absolutePath)
             }
         }
         throwable?.also { throw it }
         dis.forEach { input ->
             executor.exec(latch, onError = { throwable = it }) {
-                val src = input.file
-                val dest = output.getContentLocation(
+                val srcDir = input.file
+                val destDir = output.getContentLocation(
                     input.name,
                     input.contentTypes,
                     input.scopes,
                     Format.DIRECTORY
                 )
-                dest.deleteRecursively()
-                src.copyRecursively(dest)
-                dest.walk().forEach file@{
-                    if (!it.isFile || it.extension != "class") return@file
-                    val item = it.inputStream().visit(it)
+                destDir.walkBottomUp().forEach {
+                    if (isIncremental && !modifierManager.canIncremental(it, CacheStatus.REMOVED)) {
+                        isIncremental = false
+                    }
+                    it.delete()
+                }
+                srcDir.walk().forEach file@{
+                    if (it.isDirectory) return@file
+                    val destFile = File(destDir, it.toRelativeString(srcDir))
+                    if (it.extension != "class") {
+                        it.copyTo(destFile, true)
+                        return@file
+                    }
+                    val item = it.inputStream().visit(destFile)
                     items.lock { add(item) }
                 }
             }
@@ -217,7 +247,8 @@ class BytecodeTransform(private val project: Project) : Transform() {
             executor.exec(latch, onError = { throwable = it }) {
                 val cw = ClassWriter(item.classReader, 0)
                 item.classNode.accept(cw)
-                item.dest.outputStream().use { it.write(cw.toByteArray()) }
+                item.dest.parentFile.mkdirs()
+                item.dest.writeBytes(cw.toByteArray())
             }
         }
         latch.await()
@@ -254,10 +285,11 @@ class BytecodeTransform(private val project: Project) : Transform() {
         logger.quiet("=================== $PLUGIN_NAME transform start ===================")
         logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
         logger.quiet(">>> gradle plugin version: ${Version.ANDROID_GRADLE_PLUGIN_VERSION}")
-        logger.quiet(">>> isIncremental: ${transformInvocation.isIncremental}")
+        logger.quiet(">>> isIncremental: $isIncremental")
         logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
         val startTime = System.currentTimeMillis()
         executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
+        modifierManager = ModifierManager(this, executor)
         try {
             block(
                 transformInvocation.context,

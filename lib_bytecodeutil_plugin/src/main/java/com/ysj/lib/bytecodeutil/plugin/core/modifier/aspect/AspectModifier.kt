@@ -5,15 +5,16 @@ import com.ysj.lib.bytecodeutil.api.aspect.*
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.params
-import com.ysj.lib.bytecodeutil.plugin.core.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
+import java.io.File
 import java.util.*
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
@@ -27,6 +28,7 @@ import kotlin.collections.HashMap
  */
 class AspectModifier(
     override val transform: Transform,
+    override val executor: ExecutorService,
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
@@ -46,7 +48,7 @@ class AspectModifier(
 
     private val methodProxyProcessor by lazy { MethodProxyProcessor(this) }
 
-    override fun scan(classNode: ClassNode) {
+    override fun scan(destClassFile: File, classNode: ClassNode) {
         // 过滤所有没有 Aspect 注解的类
         if (!classNode.hasAspectAnnotation) return
         classNode.analysis().forEach { bean ->
@@ -71,7 +73,6 @@ class AspectModifier(
     override fun modify() {
         val old = System.currentTimeMillis()
         var throwable: Throwable? = null
-        val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {
             // 注意这里没加锁，内部不要多线程修改
@@ -85,7 +86,6 @@ class AspectModifier(
             }
         }
         latch.await()
-        executor.shutdown()
         throwable?.also { throw it }
         logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
     }
