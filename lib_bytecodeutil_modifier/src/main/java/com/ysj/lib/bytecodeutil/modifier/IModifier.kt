@@ -47,7 +47,7 @@ interface IModifier {
     /**
      * 开始修改 [scan] 到的类
      */
-    fun modify()
+    fun modify(isIncremental: Boolean)
 
     /**
      * 修改结束，此时修改的字节码已经存到文件了

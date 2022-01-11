@@ -31,10 +31,17 @@ class ModifierManager(override val transform: Transform, override val executor: 
         modifiers.forEach { it.scan(destClassFile, classNode) }
     }
 
-    override fun modify() {
+    override fun modify(isIncremental: Boolean) {
+        for (index in modifiers.indices) {
+            modifiers[index].modify(isIncremental)
+        }
+    }
+
+    override fun modifyEnd() {
+        super.modifyEnd()
         val iterator = modifiers.iterator()
         while (iterator.hasNext()) {
-            iterator.next().modify()
+            iterator.next().modifyEnd()
             // 用完就移除，节约内存，避免 OOM
             iterator.remove()
         }

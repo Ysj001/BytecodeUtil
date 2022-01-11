@@ -1,9 +1,9 @@
 package com.ysj.lib.bytecodeutil.plugin.core.cache
 
-import com.ysj.lib.bytecodeutil.modifier.cache.AbsCache
+import com.android.build.api.transform.TransformInput
 import com.ysj.lib.bytecodeutil.modifier.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.modifier.utils.fromJson
-import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.modifier.utils.toJson
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
@@ -13,13 +13,17 @@ import java.util.concurrent.ConcurrentHashMap
  * @author Ysj
  * Create time: 2022/1/6 20:42
  */
-class JarTransformCache(cacheDir: File, private val logger: YLogger) : AbsCache<JarTransformCache.CacheInfo>() {
+class JarTransformCache(cacheDir: File) {
 
-    override val cacheFile: File = File(cacheDir, "jar-cache-mapping.json")
+    private val cacheFile: File = File(cacheDir, "jar-cache-mapping.json")
 
-    override var beforeCache: MutableMap<String, CacheInfo> = if (cacheFile.exists()) cacheFile.fromJson() else mutableMapOf()
+    val cache: ConcurrentHashMap<String, CacheInfo> = if (cacheFile.exists()) cacheFile.fromJson() else ConcurrentHashMap()
 
-    override val currentCache = ConcurrentHashMap<String, CacheInfo>()
+    val hasCache get() = cache.isNotEmpty()
+
+    operator fun set(key: String, value: CacheInfo) {
+        cache[key] = value
+    }
 
     /**
      * 获取 [CacheStatus]，不会有 [CacheStatus.REMOVED]。
@@ -29,7 +33,7 @@ class JarTransformCache(cacheDir: File, private val logger: YLogger) : AbsCache<
      * @param md5 jar 文件 md5
      */
     fun state(key: String, md5: String): CacheStatus {
-        val beforeInfo = beforeValue(key)
+        val beforeInfo = cache[key]
         return when {
             beforeInfo == null -> CacheStatus.ADDED
             beforeInfo.md5 != md5 -> CacheStatus.CHANGED
@@ -37,12 +41,18 @@ class JarTransformCache(cacheDir: File, private val logger: YLogger) : AbsCache<
         }
     }
 
-    fun processRemoved(block: (File) -> Unit): Unit = beforeCache.forEach { (key, value) ->
-        if (currentCache[key] != null) return@forEach
-        val dest = File(value.cachePath)
-        if (!dest.exists()) return@forEach
-        if (dest.isDirectory) dest.walkBottomUp().forEach { block(it);it.delete() }
-        dest.delete()
+    fun processRemoved(transformInput: Collection<TransformInput>, block: (File) -> Unit): Unit =
+        cache.forEach { (key, value) ->
+            if (transformInput.find { it.jarInputs.find { ji -> key == ji.name } != null } != null) return@forEach
+            val dest = File(value.cachePath)
+            if (!dest.exists()) return@forEach
+            if (dest.isDirectory) dest.walkBottomUp().forEach { block(it);it.delete() }
+            dest.delete()
+        }
+
+    fun saveCache() {
+        cacheFile.delete()
+        cache.toJson(cacheFile)
     }
 
     class CacheInfo(

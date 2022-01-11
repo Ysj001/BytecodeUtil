@@ -70,7 +70,7 @@ class AspectModifier(
         }
     }
 
-    override fun modify() {
+    override fun modify(isIncremental: Boolean) {
         val old = System.currentTimeMillis()
         var throwable: Throwable? = null
         val latch = CountDownLatch(allClassNode.size)

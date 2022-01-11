@@ -18,7 +18,7 @@ class DIModifier(
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
-    override fun modify() {
+    override fun modify(isIncremental: Boolean) {
         TODO("Not yet implemented")
     }
 

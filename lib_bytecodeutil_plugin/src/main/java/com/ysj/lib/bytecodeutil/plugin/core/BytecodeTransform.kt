@@ -68,6 +68,10 @@ class BytecodeTransform(private val project: Project) : Transform() {
                                            _,
                                            outputProvider,
                                            _ ->
+            if (!isIncremental) {
+                outputProvider.deleteAll()
+                context.temporaryDir.deleteRecursively()
+            }
             extensions.modifiers?.forEach {
                 modifierManager.addModifier(
                     it as Class<out IModifier>,
@@ -82,7 +86,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     return super.add(element)
                 }
             }
-            jarTransformCache = JarTransformCache(context.temporaryDir, logger)
+            jarTransformCache = JarTransformCache(context.temporaryDir)
             notIncrementalProcess = if (!jarTransformCache.hasCache) arrayListOf() else ArrayList(inputs.sumBy {
                 it.jarInputs.size + it.directoryInputs.size
             })
@@ -90,7 +94,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             oldTime = System.currentTimeMillis()
             // 预处理
             inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, items) }
-            jarTransformCache.processRemoved {
+            jarTransformCache.processRemoved(inputs) {
                 if (isIncremental && !modifierManager.canIncremental(it, CacheStatus.REMOVED)) {
                     isIncremental = false
                 }
@@ -109,6 +113,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
             // 正式处理
             process(items)
             logger.lifecycle(">>> process time：${System.currentTimeMillis() - oldTime}")
+            modifierManager.modifyEnd()
             jarTransformCache.saveCache()
         }
     }
@@ -179,7 +184,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     CacheStatus.ADDED -> noIncrementalProcessJar()
                     CacheStatus.CHANGED -> {
                         // 按照移除老的再添加新的处理
-                        jarTransformCache.beforeValue(input.name)?.also { info ->
+                        jarTransformCache.cache[input.name]?.also { info ->
                             val oldDest = File(info.cachePath)
                             if (!oldDest.exists()) return@also
                             if (oldDest.isDirectory) oldDest.walkBottomUp().forEach {
@@ -194,7 +199,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     }
                     else -> {
                         val action: () -> Unit = {
-                            jarTransformCache.beforeValue(input.name)?.also { info ->
+                            jarTransformCache.cache[input.name]?.also { info ->
                                 val oldDest = File(info.cachePath)
                                 if (!oldDest.exists()) return@also
                                 if (oldDest.isDirectory) oldDest.deleteRecursively()
@@ -240,7 +245,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
     }
 
     private fun process(items: Collection<ProcessItem>) {
-        modifierManager.modify()
+        modifierManager.modify(isIncremental)
         var throwable: Throwable? = null
         val latch = CountDownLatch(items.size)
         items.forEach { item ->
@@ -285,7 +290,6 @@ class BytecodeTransform(private val project: Project) : Transform() {
         logger.quiet("=================== $PLUGIN_NAME transform start ===================")
         logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
         logger.quiet(">>> gradle plugin version: ${Version.ANDROID_GRADLE_PLUGIN_VERSION}")
-        logger.quiet(">>> isIncremental: $isIncremental")
         logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
         val startTime = System.currentTimeMillis()
         executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
@@ -301,6 +305,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
         } finally {
             executor.shutdownNow()
         }
+        logger.quiet(">>> isIncremental: $isIncremental")
         logger.quiet(">>> total process time: ${System.currentTimeMillis() - startTime} ms")
         logger.quiet("=================== $PLUGIN_NAME transform end   ===================")
     }
