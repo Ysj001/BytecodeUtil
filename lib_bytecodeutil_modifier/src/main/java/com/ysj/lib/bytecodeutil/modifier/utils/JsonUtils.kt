@@ -33,7 +33,5 @@ fun Any.toJson() = GSON.toJson(this)
 
 fun Any.toJson(file: File) = file.bufferedWriter().use { GSON.toJson(this, it) }
 
-inline fun <reified T> File.fromJson(): MutableMap<String, T> = bufferedReader().use { it.fromJson() }
-
-inline fun <reified T> Reader.fromJson(): MutableMap<String, T> =
-    GSON.fromJson(this, TypeToken.getParameterized(Map::class.java, String::class.java, T::class.java).type)
+inline fun <reified T> File.fromJson(): T = bufferedReader().use { it.fromJson() }
+inline fun <reified T> Reader.fromJson(): T = GSON.fromJson(this, object : TypeToken<T>() {}.type)
