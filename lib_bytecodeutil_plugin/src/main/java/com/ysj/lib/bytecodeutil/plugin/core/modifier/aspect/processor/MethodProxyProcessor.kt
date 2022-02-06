@@ -61,6 +61,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             // 插入参数
             if (hasJoinPoint) insnList.insertBefore(proxyNode, getJoinPoint(classNode, methodNode))
             logger.info("Method Call 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
+            // 记录此次修改
+            aspectModifier.modifierCache.record(pointcutBean, classNode, methodNode)
         }
         if (firstNode.beforeIsStoredJoinPoint && !isRemovedJoinPoint(classNode, methodNode)) {
             for (insnNode in insnList) {

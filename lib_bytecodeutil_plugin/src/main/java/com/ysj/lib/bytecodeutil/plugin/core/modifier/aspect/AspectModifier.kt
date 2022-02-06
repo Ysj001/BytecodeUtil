@@ -1,13 +1,16 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
 import com.android.build.api.transform.Transform
+import com.android.build.api.transform.TransformInvocation
 import com.ysj.lib.bytecodeutil.api.aspect.*
 import com.ysj.lib.bytecodeutil.modifier.IModifier
+import com.ysj.lib.bytecodeutil.modifier.cache.CacheStatus
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
+import org.gradle.api.Project
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
@@ -15,7 +18,6 @@ import java.io.File
 import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -32,23 +34,41 @@ class AspectModifier(
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
-    val cache by lazy { HashMap<String, Any>() }
+    lateinit var modifierCache: AspectModifierCache
+        private set
+
+    val cache = HashMap<String, Any>()
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val targetClass by lazy { LinkedList<PointcutBean>() }
+    private val targetClass = LinkedList<PointcutBean>()
 
-    private val targetSuperClass by lazy { LinkedList<PointcutBean>() }
+    private val targetSuperClass = LinkedList<PointcutBean>()
 
-    private val targetInterface by lazy { LinkedList<PointcutBean>() }
+    private val targetInterface = LinkedList<PointcutBean>()
 
-    private val targetAnnotation by lazy { LinkedList<PointcutBean>() }
+    private val targetAnnotation = LinkedList<PointcutBean>()
 
-    private val methodInnerProcessor by lazy { MethodInnerProcessor(this) }
+    private val methodInnerProcessor = MethodInnerProcessor(this)
 
-    private val methodProxyProcessor by lazy { MethodProxyProcessor(this) }
+    private val methodProxyProcessor = MethodProxyProcessor(this)
+
+    override fun initialize(project: Project, transformInvocation: TransformInvocation) {
+        super.initialize(project, transformInvocation)
+        modifierCache = AspectModifierCache(transformInvocation.context.temporaryDir)
+    }
+
+    override fun canIncremental(classFile: File, cacheStatus: CacheStatus): Boolean {
+        // todo
+//        val methods = modifierCache.cache.targetMap[classFile.absolutePath]
+//        if (methods != null) {
+//            return false
+//        }
+        return false
+    }
 
     override fun scan(destClassFile: File, classNode: ClassNode) {
+        modifierCache.classFileMap[classNode.name] = destClassFile.absolutePath
         // 过滤所有没有 Aspect 注解的类
         if (!classNode.hasAspectAnnotation) return
         classNode.analysis().forEach { bean ->
@@ -88,6 +108,11 @@ class AspectModifier(
         latch.await()
         throwable?.also { throw it }
         logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
+    }
+
+    override fun modifyEnd() {
+        super.modifyEnd()
+        modifierCache.saveCache()
     }
 
     /**
@@ -206,9 +231,9 @@ class AspectModifier(
 
     private fun PointcutBean.matchInterface(cn: ClassNode, mn: MethodNode): Boolean {
         return (matchInterface(target, cn.interfaces) &&
-                Pattern.matches(funName, mn.name) &&
-                Pattern.matches(funDesc, mn.desc)) ||
-                matchInterface(allClassNode[cn.superName] ?: return false, mn)
+            Pattern.matches(funName, mn.name) &&
+            Pattern.matches(funDesc, mn.desc)) ||
+            matchInterface(allClassNode[cn.superName] ?: return false, mn)
     }
 
     private fun matchInterface(target: String, interfaces: List<String>?): Boolean {
@@ -223,8 +248,8 @@ class AspectModifier(
 
     private fun PointcutBean.matchSuperClass(mn: MethodNode, superName: String): Boolean {
         return (Pattern.matches(target, superName) &&
-                Pattern.matches(funName, mn.name) &&
-                Pattern.matches(funDesc, mn.desc)) ||
-                matchSuperClass(mn, allClassNode[superName]?.superName ?: return false)
+            Pattern.matches(funName, mn.name) &&
+            Pattern.matches(funDesc, mn.desc)) ||
+            matchSuperClass(mn, allClassNode[superName]?.superName ?: return false)
     }
 }

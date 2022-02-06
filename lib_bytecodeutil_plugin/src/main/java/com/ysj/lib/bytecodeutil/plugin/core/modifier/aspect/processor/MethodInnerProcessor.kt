@@ -66,6 +66,8 @@ class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         }
         if (isStoredJoinPoint) cacheRemovedJoinPoint(classNode, methodNode)
         logger.info("Method Inner 插入 --> ${classNode.name}#${methodNode.name}${methodNode.desc}")
+        // 记录此次修改
+        aspectModifier.modifierCache.record(pointcut, classNode, methodNode)
     }
 
 }

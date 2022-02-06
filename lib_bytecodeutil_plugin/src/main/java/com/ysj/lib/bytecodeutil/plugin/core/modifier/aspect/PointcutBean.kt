@@ -2,6 +2,7 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
 import com.ysj.lib.bytecodeutil.api.aspect.*
 import org.objectweb.asm.Type
+import org.objectweb.asm.tree.MethodNode
 import java.io.Serializable
 
 /**
@@ -37,6 +38,13 @@ class PointcutBean(
 
     /** 切面方法的参数 */
     val aspectFunArgs: Array<Type> = Type.getArgumentTypes(aspectFunDesc)
+
+    /**
+     * 描述处理了哪些类中的哪些方法
+     * key：target class file path
+     * value：List<"$[MethodNode.name]$[MethodNode.desc]">
+     */
+    val targetMap = HashMap<String, HashSet<String>>()
 
     override fun toString(): String {
         return """
