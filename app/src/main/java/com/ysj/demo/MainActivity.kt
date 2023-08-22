@@ -1,9 +1,10 @@
-package com.ysj.lib.simpleaop
+package com.ysj.demo
 
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import com.example.module.test.Test
 
 class MainActivity : AppCompatActivity(), Runnable {
 
@@ -15,6 +16,7 @@ class MainActivity : AppCompatActivity(), Runnable {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        Test()
         run()
         test2("1111")
         findViewById<View>(R.id.test).setOnClickListener {

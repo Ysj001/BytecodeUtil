@@ -1,4 +1,4 @@
-package com.ysj.lib.simpleaop
+package com.ysj.demo
 
 /**
  * 使用该注解标识的方法间隔指定时间后才能再次触发

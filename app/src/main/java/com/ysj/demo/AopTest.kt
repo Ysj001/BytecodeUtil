@@ -1,4 +1,4 @@
-package com.ysj.lib.simpleaop
+package com.ysj.demo
 
 import android.util.Log
 import com.ysj.lib.bytecodeutil.api.aspect.*
@@ -14,13 +14,13 @@ object AopTest {
 
     const val TAG = "AopTest"
 
-    @Pointcut(
-        target = "class:.*.",
-        position = POSITION_START,
-    )
-    fun log2(jp: JoinPoint) {
-        Log.i(TAG, "log2 --> jp-target:${jp.target}，jp-args:${jp.args.contentToString()}")
-    }
+//    @Pointcut(
+//        target = "class:.*.",
+//        position = POSITION_START,
+//    )
+//    fun log2(jp: JoinPoint) {
+//        Log.i(TAG, "log2 --> jp-target:${jp.target}，jp-args:${jp.args.contentToString()}")
+//    }
 
     @Pointcut(
         target = "annotation:L.*LogPositionReturn;",
