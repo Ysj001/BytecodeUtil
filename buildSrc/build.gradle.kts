@@ -5,6 +5,7 @@ plugins {
 }
 
 repositories {
+    maven { setUrl("https://maven.aliyun.com/nexus/content/groups/public/") }
     google()
     gradlePluginPortal()
     mavenCentral()
@@ -12,10 +13,6 @@ repositories {
 
 dependencies {
     implementation(gradleKotlinDsl())
-    implementation("com.android.tools.build:gradle:4.1.3")
-    implementation("com.squareup.okhttp3:okhttp:4.3.1")
-}
-
-tasks.withType<KotlinCompile> {
-    kotlinOptions.languageVersion = "1.4.10"
+    implementation("com.android.tools.build:gradle-api:8.1.0")
+    implementation("com.squareup.okhttp3:okhttp:4.9.2")
 }

@@ -1,9 +1,14 @@
 package com.ysj.lib.bytecodeutil.plugin.core
 
-import com.android.Version
-import com.android.build.api.transform.*
-import com.android.build.gradle.internal.pipeline.TransformManager
-import com.android.utils.FileUtils
+import com.android.build.api.transform.Context
+import com.android.build.api.transform.DirectoryInput
+import com.android.build.api.transform.Format
+import com.android.build.api.transform.JarInput
+import com.android.build.api.transform.QualifiedContent
+import com.android.build.api.transform.Transform
+import com.android.build.api.transform.TransformInput
+import com.android.build.api.transform.TransformInvocation
+import com.android.build.api.transform.TransformOutputProvider
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
@@ -15,7 +20,8 @@ import org.objectweb.asm.tree.ClassNode
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.util.*
+import java.util.Enumeration
+import java.util.LinkedList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.jar.JarEntry
@@ -42,11 +48,14 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     override fun getName(): String = PLUGIN_NAME
 
-    override fun getInputTypes(): MutableSet<QualifiedContent.ContentType> =
-        TransformManager.CONTENT_CLASS
+    override fun getInputTypes(): Set<QualifiedContent.ContentType> = setOf(
+        QualifiedContent.DefaultContentType.CLASSES
+    )
 
-    override fun getScopes(): MutableSet<in QualifiedContent.Scope> =
-        TransformManager.SCOPE_FULL_PROJECT
+    override fun getScopes(): MutableSet<in QualifiedContent.Scope> = mutableSetOf(
+        QualifiedContent.Scope.PROJECT
+    )
+
 
     override fun isIncremental(): Boolean = false
 
@@ -103,7 +112,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                     }
                 }
             }
-            if (needs.isEmpty()) FileUtils.copyFile(src, dest)
+            if (needs.isEmpty()) src.copyTo(dest)
             else jarItems.push(JarProcessItem(src, dest, notNeeds, needs))
         }
         dis.forEach { input ->
@@ -114,7 +123,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                 input.scopes,
                 Format.DIRECTORY
             )
-            FileUtils.copyDirectory(src, dest)
+            src.copyTo(dest)
             dest.walk().forEach test@{
                 if (!it.isNeedFile()) return@test
                 logger.verbose("process dir file --> ${it.name}")
@@ -176,10 +185,10 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private fun JarEntry.notNeedJarEntries(): Boolean =
         name.endsWith(".class").not()
-                || checkAndroidRFile(name)
-                || name.startsWith("META-INF/")
-                || name.startsWith("com/ysj/lib/bytecodeutil/")
-                || extensions.notNeedJar?.invoke(name) ?: false
+            || checkAndroidRFile(name)
+            || name.startsWith("META-INF/")
+            || name.startsWith("com/ysj/lib/bytecodeutil/")
+            || extensions.notNeedJar?.invoke(name) ?: false
 
     private fun File.isNeedFile(): Boolean = isFile && extension == "class"
 
@@ -200,7 +209,6 @@ class BytecodeTransform(private val project: Project) : Transform() {
         YLogger.LOGGER_LEVEL = extensions.loggerLevel
         logger.quiet("=================== $PLUGIN_NAME transform start ===================")
         logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
-        logger.quiet(">>> gradle plugin version: ${Version.ANDROID_GRADLE_PLUGIN_VERSION}")
         logger.quiet(">>> isIncremental: ${transformInvocation.isIncremental}")
         logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
         val startTime = System.currentTimeMillis()

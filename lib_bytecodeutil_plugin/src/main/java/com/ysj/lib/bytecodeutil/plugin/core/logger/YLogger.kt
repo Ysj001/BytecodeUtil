@@ -1,6 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin.core.logger
 
-import com.android.build.gradle.internal.LoggerWrapper
+import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.Logger
 import org.gradle.api.logging.Logging
 
@@ -10,7 +10,7 @@ import org.gradle.api.logging.Logging
  * @author Ysj
  * Create time: 2020/10/23
  */
-class YLogger private constructor(logger: Logger) : LoggerWrapper(logger) {
+class YLogger private constructor(private val logger: Logger) : ILogger {
 
     companion object {
         var LOGGER_LEVEL: Int = 1
@@ -18,33 +18,33 @@ class YLogger private constructor(logger: Logger) : LoggerWrapper(logger) {
         fun getLogger(clazz: Class<*>) = YLogger(Logging.getLogger(clazz))
     }
 
-    override fun error(throwable: Throwable?, s: String?, vararg objects: Any?) {
+    override fun error(t: Throwable?, msgFormat: String?, vararg args: Any?) {
         if (LOGGER_LEVEL > 5) return
-        super.error(throwable, s, *objects)
+        logger.log(LogLevel.ERROR, msgFormat, t)
     }
 
-    override fun warning(s: String?, vararg objects: Any?) {
+    override fun warning(msgFormat: String?, vararg args: Any?) {
         if (LOGGER_LEVEL > 4) return
-        super.warning(s, *objects)
+        logger.log(LogLevel.WARN, msgFormat, *args)
     }
 
-    override fun quiet(s: String?, vararg objects: Any?) {
+    override fun quiet(msgFormat: String?, vararg args: Any?) {
         if (LOGGER_LEVEL > 3) return
-        super.quiet(s, *objects)
+        logger.quiet(msgFormat, *args)
     }
 
-    override fun lifecycle(s: String?, vararg objects: Any?) {
+    override fun lifecycle(msgFormat: String?, vararg args: Any?) {
         if (LOGGER_LEVEL > 2) return
-        super.lifecycle(s, *objects)
+        logger.lifecycle(msgFormat, *args)
     }
 
-    override fun info(s: String?, vararg objects: Any?) {
+    override fun info(msgFormat: String?, vararg args: Any?) {
         if (LOGGER_LEVEL > 1) return
-        super.lifecycle(s, *objects)
+        logger.lifecycle(msgFormat, *args)
     }
 
-    override fun verbose(s: String?, vararg objects: Any?) {
+    override fun verbose(msgFormat: String?, vararg args: Any?) {
         if (LOGGER_LEVEL > 0) return
-        super.lifecycle(s, *objects)
+        logger.lifecycle(msgFormat, *args)
     }
 }

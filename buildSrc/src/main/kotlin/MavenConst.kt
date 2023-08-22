@@ -1,4 +1,5 @@
 import org.gradle.api.Project
+import org.gradle.api.artifacts.dsl.RepositoryHandler
 import java.io.File
 import java.net.URI
 
@@ -16,7 +17,10 @@ const val MAVEN_CENTRAL_SNAPSHOTS = "https://s01.oss.sonatype.org/content/reposi
 val Project.MAVEN_LOCAL: URI
     get() = File(rootDir, "repos").toURI()
 
-const val LIB_VERSION = "1.0.0"
+val Project.MAVEN_LOCAL2: URI
+    get() = File(rootDir, "repos1").toURI()
+
+const val LIB_VERSION = "1.0.8"
 const val LIB_GROUP_ID = "io.github.ysj001"
 
 const val POM_URL = "https://github.com/Ysj001/BytecodeUtil"
@@ -28,3 +32,6 @@ const val POM_DEVELOPER_ID = "github_Ysj001"
 const val POM_DEVELOPER_NAME = "Ysj"
 const val POM_DEVELOPER_EMAIL = "543501451@qq.com"
 
+fun Project.applyMavenLocal(handler: RepositoryHandler) = handler.maven {
+    url = MAVEN_LOCAL
+}

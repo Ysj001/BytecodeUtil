@@ -4,15 +4,17 @@ plugins {
     id("kotlin")
 }
 
+group = LIB_GROUP_ID
+version = LIB_VERSION
+
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 repositories {
     google()
     mavenCentral()
-    jcenter()
 }
 
 dependencies {
@@ -20,6 +22,9 @@ dependencies {
     implementation(localGroovy())
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$KOTLIN_VERSION")
     compileOnly("com.android.tools.build:gradle:$ANDROID_GRADLE_VERSION")
+    implementation("org.ow2.asm:asm:6.2")
+    implementation("org.ow2.asm:asm-tree:6.2")
+    implementation("org.ow2.asm:asm-util:6.2")
 }
 
-mavenPublish()
+mavenPublish(LIB_GROUP_ID, LIB_VERSION)

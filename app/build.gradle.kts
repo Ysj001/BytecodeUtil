@@ -1,11 +1,12 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android")
     id("bytecodeutil-plugin")
 }
 
 bytecodeUtil {
-    loggerLevel = 1
+    loggerLevel = 0
+//    jarOptimize = false
     modifiers = arrayOf(
         Class.forName("com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier")
         // 演示挂载 demo_plugin 插件中的修改器
@@ -20,21 +21,22 @@ bytecodeUtil {
                 || entryName.startsWith("org/junit/")
                 || entryName.startsWith("org/hamcrest/")
                 || entryName.startsWith("com/squareup/")
-                || entryName.startsWith("androidx/")
-                || entryName.startsWith("android/")
-                || entryName.startsWith("com/google/android/")
+//                || entryName.startsWith("androidx/")
+//                || entryName.startsWith("android/")
+//                || entryName.startsWith("com/google/android/")
     }
 }
 
 android {
-    compileSdkVersion(29)
-    buildToolsVersion("29.0.3")
+    namespace = "com.ysj.demo"
+    compileSdk = 33
 
     defaultConfig {
-        minSdkVersion(19)
-        applicationId = "com.ysj.lib.simpleaop"
+        applicationId = "com.ysj.demo"
+        minSdk = 21
+        targetSdk = 33
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -57,26 +59,30 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-
-    // lint 耗时，关掉
-    lintOptions {
-        isCheckReleaseBuilds = false
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        viewBinding = true
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    lint {
+        checkReleaseBuilds = false
     }
 }
 
 dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
-    api("org.jetbrains.kotlin:kotlin-stdlib:$KOTLIN_VERSION")
-    api("androidx.core:core-ktx:1.3.2")
 
-    api("androidx.appcompat:appcompat:1.2.0")
-    api("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0-alpha01")
-    api("com.google.android.material:material:1.3.0-alpha04")
-    api("androidx.legacy:legacy-support-v4:1.0.0")
-    api("androidx.constraintlayout:constraintlayout:2.0.4")
+    implementation(project(":lib_bytecodeutil_api"))
 
-    implementation("$PROJECT_LIB_GROUP_ID:bytecodeutil-api:$PROJECT_LIB_VERSION")
+    implementation(project(":module_test"))
+//    implementation("io.github.ysj00:module_test:1.0.8")
 }
