@@ -1,5 +1,6 @@
 package com.ysj.lib.bytecodeutil.modifier
 
+import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
@@ -17,6 +18,8 @@ class ModifierManager : IModifier {
 
     private val modifiers = ArrayList<IModifier>()
 
+    private val logger = YLogger.getLogger(javaClass)
+
     override fun scan(classNode: ClassNode) {
         allClassNode[classNode.name] = classNode
         modifiers.forEach { it.scan(classNode) }
@@ -24,10 +27,15 @@ class ModifierManager : IModifier {
 
     override fun modify(executor: Executor) {
         val iterator = modifiers.iterator()
+        var startTime: Long
         while (iterator.hasNext()) {
-            iterator.next().modify(executor)
+            startTime = System.currentTimeMillis()
+            val modifier = iterator.next()
+            modifier.modify(executor)
             // 用完就移除，节约内存，避免 OOM
             iterator.remove()
+            val time = System.currentTimeMillis() - startTime
+            logger.lifecycle(">>> ${modifier.javaClass.simpleName} process time：$time ms")
         }
     }
 

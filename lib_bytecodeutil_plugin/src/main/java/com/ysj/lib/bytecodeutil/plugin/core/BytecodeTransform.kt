@@ -73,11 +73,10 @@ abstract class BytecodeTransform : DefaultTask() {
             val clazz = modifiers[index]
             @Suppress("UNCHECKED_CAST")
             modifierManager.addModifier(project, clazz as Class<out IModifier>)
-            logger.quiet("apply modifier: $clazz")
+            logger.quiet(">>> apply modifier: ${clazz.name}")
         }
 
         val outputFile = output.get().asFile
-        logger.quiet("bcu out put >>> $outputFile")
         outputFile.outputStream().use { fos ->
             JarOutputStream(fos).use { jos ->
                 var startTime = System.currentTimeMillis()
@@ -89,12 +88,16 @@ abstract class BytecodeTransform : DefaultTask() {
                 // 处理所有字节码
                 startTime = System.currentTimeMillis()
                 modifierManager.modify(executor)
-                logger.quiet(">>> bcu scan time: ${System.currentTimeMillis() - startTime} ms")
+                logger.quiet(">>> bcu modify time: ${System.currentTimeMillis() - startTime} ms")
 
+                // 把所有字节码写到 output jar
+                startTime = System.currentTimeMillis()
                 process(items, executor, jos)
+                logger.quiet(">>> bcu output time: ${System.currentTimeMillis() - startTime} ms")
             }
         }
         executor.shutdownNow()
+        logger.quiet(">>> bcu out put $outputFile")
     }
 
     private fun scanAll(
@@ -145,10 +148,10 @@ abstract class BytecodeTransform : DefaultTask() {
             val rootUri = rootDir.toURI()
             rootDir.walk().filter { it.isFile }.forEach { file ->
                 executor.exec(latch, { throwable.set(it) }) {
-                    logger.verbose("process dir file --> ${file.name}")
                     val entryName = rootUri
                         .relativize(file.toURI()).path
                         .replace(File.separatorChar, '/')
+                    logger.verbose("process dir file --> $entryName")
                     synchronized(needs) {
                         needs.push(file.inputStream().visit(entryName, modifierManager))
                     }
@@ -165,7 +168,6 @@ abstract class BytecodeTransform : DefaultTask() {
 
     private fun process(items: LinkedList<ProcessItem>, executor: Executor, jos: JarOutputStream) {
         val throwable = AtomicReference<Throwable>()
-        // 处理 jar
         val latch = CountDownLatch(items.size)
         items.forEach { item ->
             executor.exec(latch, { throwable.set(it) }) {

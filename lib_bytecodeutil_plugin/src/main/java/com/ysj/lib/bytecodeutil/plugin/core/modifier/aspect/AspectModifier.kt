@@ -121,7 +121,6 @@ class AspectModifier(
     }
 
     override fun modify(executor: Executor) {
-        val old = System.currentTimeMillis()
         var throwable: Throwable? = null
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {
@@ -137,7 +136,6 @@ class AspectModifier(
         }
         latch.await()
         throwable?.also { throw it }
-        logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
     }
 
     /**
