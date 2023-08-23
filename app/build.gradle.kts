@@ -6,7 +6,6 @@ plugins {
 
 bytecodeUtil {
     loggerLevel = 0
-//    jarOptimize = false
     modifiers = arrayOf(
         Class.forName("com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier")
         // 演示挂载 demo_plugin 插件中的修改器
@@ -14,13 +13,13 @@ bytecodeUtil {
     )
     notNeedJar = { entryName ->
         entryName.startsWith("kotlin/")
-                || entryName.startsWith("kotlinx/")
-                || entryName.startsWith("javax/")
-                || entryName.startsWith("org/intellij/")
-                || entryName.startsWith("org/jetbrains/")
-                || entryName.startsWith("org/junit/")
-                || entryName.startsWith("org/hamcrest/")
-                || entryName.startsWith("com/squareup/")
+            || entryName.startsWith("kotlinx/")
+            || entryName.startsWith("javax/")
+            || entryName.startsWith("org/intellij/")
+            || entryName.startsWith("org/jetbrains/")
+            || entryName.startsWith("org/junit/")
+            || entryName.startsWith("org/hamcrest/")
+            || entryName.startsWith("com/squareup/")
 //                || entryName.startsWith("androidx/")
 //                || entryName.startsWith("android/")
 //                || entryName.startsWith("com/google/android/")
@@ -83,6 +82,6 @@ dependencies {
 
     implementation(project(":lib_bytecodeutil_api"))
 
-    implementation(project(":module_test"))
+//    implementation(project(":module_test"))
 //    implementation("io.github.ysj00:module_test:1.0.8")
 }
