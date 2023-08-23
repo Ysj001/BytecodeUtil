@@ -5,7 +5,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
 import com.ysj.lib.bytecodeutil.api.util.BCUKeep
 import com.ysj.lib.bytecodeutil.modifier.*
 import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
-import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.*
 import org.codehaus.groovy.ast.ClassHelper
 import org.objectweb.asm.Opcodes

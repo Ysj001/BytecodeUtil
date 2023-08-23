@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.plugin.core.logger
+package com.ysj.lib.bytecodeutil.modifier.logger
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.Logger

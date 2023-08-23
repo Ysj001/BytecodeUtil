@@ -10,7 +10,7 @@ import com.ysj.lib.bytecodeutil.api.aspect.Pointcut
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.params
-import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes

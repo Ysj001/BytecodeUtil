@@ -1,6 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin.core
 
-import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
 import java.util.jar.JarEntry
 
 /**

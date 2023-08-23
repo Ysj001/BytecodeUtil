@@ -3,7 +3,7 @@ package com.ysj.lib.bytecodeutil.plugin.core
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
-import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
+import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.Directory
 import org.gradle.api.file.RegularFile
