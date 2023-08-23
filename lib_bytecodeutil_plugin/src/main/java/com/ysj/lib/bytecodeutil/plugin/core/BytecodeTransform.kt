@@ -44,7 +44,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val modifierManager by lazy(LazyThreadSafetyMode.NONE) { ModifierManager(this) }
+    private val modifierManager by lazy(LazyThreadSafetyMode.NONE) { ModifierManager() }
 
     override fun getName(): String = PLUGIN_NAME
 
@@ -67,7 +67,7 @@ class BytecodeTransform(private val project: Project) : Transform() {
                                            outputProvider,
                                            isIncremental ->
             extensions.modifiers?.forEach {
-                modifierManager.addModifier(it as Class<out IModifier>, project, transformInvocation)
+                modifierManager.addModifier(project, it as Class<out IModifier>)
             }
             if (!isIncremental) outputProvider.deleteAll()
             val oldTime = System.currentTimeMillis()
@@ -133,7 +133,9 @@ class BytecodeTransform(private val project: Project) : Transform() {
     }
 
     private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>, jarItems: LinkedList<JarProcessItem>) {
-        modifierManager.modify()
+        modifierManager.modify {
+            it.run()
+        }
         val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
         var throwable: Throwable? = null
         val dirLatch = CountDownLatch(dirItems.size)

@@ -1,9 +1,9 @@
 package com.ysj.lib.bytecodeutil.modifier
 
-import com.android.build.api.transform.Transform
-import com.android.build.api.transform.TransformInvocation
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executor
 
 /**
  * 修改器的管理类
@@ -11,9 +11,9 @@ import org.objectweb.asm.tree.ClassNode
  * @author Ysj
  * Create time: 2021/3/6
  */
-class ModifierManager(override val transform: Transform) : IModifier {
+class ModifierManager : IModifier {
 
-    override val allClassNode = HashMap<String, ClassNode>()
+    override val allClassNode = ConcurrentHashMap<String, ClassNode>()
 
     private val modifiers = ArrayList<IModifier>()
 
@@ -22,19 +22,19 @@ class ModifierManager(override val transform: Transform) : IModifier {
         modifiers.forEach { it.scan(classNode) }
     }
 
-    override fun modify() {
+    override fun modify(executor: Executor) {
         val iterator = modifiers.iterator()
         while (iterator.hasNext()) {
-            iterator.next().modify()
+            iterator.next().modify(executor)
             // 用完就移除，节约内存，避免 OOM
             iterator.remove()
         }
     }
 
-    fun addModifier(modifier: Class<out IModifier>, project: Project, transformInvocation: TransformInvocation) {
-        val constructor = modifier.getConstructor(Transform::class.java, Map::class.java)
-        val element = constructor.newInstance(transform, allClassNode)
+    fun addModifier(project: Project, modifier: Class<out IModifier>) {
+        val constructor = modifier.getConstructor(Map::class.java)
+        val element = constructor.newInstance(allClassNode)
         modifiers.add(element)
-        element.initialize(project, transformInvocation)
+        element.initialize(project)
     }
 }

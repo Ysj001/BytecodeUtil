@@ -1,7 +1,12 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect
 
-import com.android.build.api.transform.Transform
-import com.ysj.lib.bytecodeutil.api.aspect.*
+import com.ysj.lib.bytecodeutil.api.aspect.Aspect
+import com.ysj.lib.bytecodeutil.api.aspect.CallingPoint
+import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
+import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
+import com.ysj.lib.bytecodeutil.api.aspect.POSITION_RETURN
+import com.ysj.lib.bytecodeutil.api.aspect.POSITION_START
+import com.ysj.lib.bytecodeutil.api.aspect.Pointcut
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.modifier.params
@@ -10,13 +15,19 @@ import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInne
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.*
-import java.util.*
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.FieldInsnNode
+import org.objectweb.asm.tree.FieldNode
+import org.objectweb.asm.tree.InsnList
+import org.objectweb.asm.tree.InsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.TypeInsnNode
+import java.util.LinkedList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.regex.Pattern
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
 
 /**
  * 用于处理 [Aspect] , [Pointcut] 来实现切面的修改器
@@ -25,7 +36,6 @@ import kotlin.collections.HashMap
  * Create time: 2021/3/6
  */
 class AspectModifier(
-    override val transform: Transform,
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
@@ -110,10 +120,9 @@ class AspectModifier(
         }
     }
 
-    override fun modify() {
+    override fun modify(executor: Executor) {
         val old = System.currentTimeMillis()
         var throwable: Throwable? = null
-        val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {
             // 注意这里没加锁，内部不要多线程修改
@@ -127,7 +136,6 @@ class AspectModifier(
             }
         }
         latch.await()
-        executor.shutdown()
         throwable?.also { throw it }
         logger.lifecycle(">>> ${javaClass.simpleName} process time：${System.currentTimeMillis() - old}")
     }
