@@ -5,14 +5,12 @@ import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
 import com.ysj.lib.bytecodeutil.api.util.BCUKeep
 import com.ysj.lib.bytecodeutil.modifier.*
 import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
-import com.ysj.lib.bytecodeutil.plugin.core.MD5
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.*
 import org.codehaus.groovy.ast.ClassHelper
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.*
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 import kotlin.collections.ArrayList
@@ -102,7 +100,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
      * ```
      */
     private fun ClassNode.generateProxyMethod(pointcut: PointcutBean, calling: MethodInsnNode, hasJoinPoint: Boolean): MethodNode {
-        val proxyName = "${calling.owner}${calling.name}${calling.desc}".MD5
+        val proxyName = "${calling.owner}${calling.name}${calling.desc}".md5()
         methods.lock {
             var find: MethodNode? = null
             // 代理方法都添加到了 methods 的后面，从后面查比较快
