@@ -1,9 +1,10 @@
 package com.ysj.lib.bytecodeutil.plugin
 
-import com.android.build.gradle.AppExtension
-import com.ysj.lib.bytecodeutil.modifier.IModifier
-import com.ysj.lib.bytecodeutil.plugin.core.BytecodeTransform
+import com.android.build.api.artifact.ScopedArtifact
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import com.android.build.api.variant.ScopedArtifacts
 import com.ysj.lib.bytecodeutil.plugin.core.BytecodeUtilExtensions
+import com.ysj.lib.bytecodeutil.plugin.core.BytecodeTransform
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -16,18 +17,25 @@ class Main : Plugin<Project> {
 
     override fun apply(project: Project) {
         project.extensions.create(BytecodeUtilExtensions.NAME, BytecodeUtilExtensions::class.java)
-        project.extensions.getByType(AppExtension::class.java).also { appExt ->
-            val transform = BytecodeTransform(project)
-            appExt.registerTransform(transform)
-            project.afterEvaluate {
-                transform.extensions = it.extensions.getByType(BytecodeUtilExtensions::class.java)
-                val clazz = IModifier::class.java
-                transform.extensions.modifiers?.forEach { m ->
-                    if (!clazz.isAssignableFrom(m)) throw RuntimeException(
-                        "$m 不是 $clazz 的子类"
+        project.extensions.configure(ApplicationAndroidComponentsExtension::class.java) { appExt ->
+            appExt.onVariants { variant ->
+                project
+                    .extensions
+                    .findByType(BytecodeUtilExtensions::class.java)
+                    ?: return@onVariants
+                val task = project.tasks.register(
+                    "${variant.name}BCUTask",
+                    BytecodeTransform::class.java,
+                )
+                variant.artifacts
+                    .forScope(ScopedArtifacts.Scope.PROJECT)
+                    .use(task)
+                    .toTransform(
+                        ScopedArtifact.CLASSES,
+                        BytecodeTransform::allJars,
+                        BytecodeTransform::allDirectories,
+                        BytecodeTransform::output
                     )
-                    project.logger.lifecycle("append modifier --> $m")
-                }
             }
         }
     }

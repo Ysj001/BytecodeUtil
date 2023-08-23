@@ -1,239 +1,209 @@
 package com.ysj.lib.bytecodeutil.plugin.core
 
-import com.android.build.api.transform.Context
-import com.android.build.api.transform.DirectoryInput
-import com.android.build.api.transform.Format
-import com.android.build.api.transform.JarInput
-import com.android.build.api.transform.QualifiedContent
-import com.android.build.api.transform.Transform
-import com.android.build.api.transform.TransformInput
-import com.android.build.api.transform.TransformInvocation
-import com.android.build.api.transform.TransformOutputProvider
 import com.ysj.lib.bytecodeutil.modifier.IModifier
 import com.ysj.lib.bytecodeutil.modifier.ModifierManager
 import com.ysj.lib.bytecodeutil.modifier.exec
 import com.ysj.lib.bytecodeutil.plugin.core.logger.YLogger
-import org.gradle.api.Project
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.Directory
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.tree.ClassNode
 import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
-import java.util.Enumeration
 import java.util.LinkedList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
 
 /**
- *
+ * 主 Task。
  *
  * @author Ysj
- * Create time: 2021/3/5
+ * Create time: 2023/8/22
  */
-class BytecodeTransform(private val project: Project) : Transform() {
+abstract class BytecodeTransform : DefaultTask() {
 
-    companion object {
-        const val PLUGIN_NAME = "BytecodeUtilPlugin"
-    }
+    @get:InputFiles
+    abstract val allJars: ListProperty<RegularFile>
 
-    lateinit var extensions: BytecodeUtilExtensions
+    @get:InputFiles
+    abstract val allDirectories: ListProperty<Directory>
+
+    @get:OutputFile
+    abstract val output: RegularFileProperty
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val modifierManager by lazy(LazyThreadSafetyMode.NONE) { ModifierManager() }
-
-    override fun getName(): String = PLUGIN_NAME
-
-    override fun getInputTypes(): Set<QualifiedContent.ContentType> = setOf(
-        QualifiedContent.DefaultContentType.CLASSES
-    )
-
-    override fun getScopes(): MutableSet<in QualifiedContent.Scope> = mutableSetOf(
-        QualifiedContent.Scope.PROJECT
-    )
-
-
-    override fun isIncremental(): Boolean = false
-
-    override fun transform(transformInvocation: TransformInvocation) {
-        super.transform(transformInvocation)
-        doTransform(transformInvocation) { context,
-                                           inputs,
-                                           referencedInputs,
-                                           outputProvider,
-                                           isIncremental ->
-            extensions.modifiers?.forEach {
-                modifierManager.addModifier(project, it as Class<out IModifier>)
-            }
-            if (!isIncremental) outputProvider.deleteAll()
-            val oldTime = System.currentTimeMillis()
-            val dirItems = LinkedList<Pair<File, ProcessItem>>()
-            val jarItems = LinkedList<JarProcessItem>()
-            // 预处理
-            inputs.forEach { process(it.jarInputs, it.directoryInputs, outputProvider, dirItems, jarItems) }
-            logger.lifecycle(">>> pre process time：${System.currentTimeMillis() - oldTime}")
-            // 正式处理
-            process(dirItems, jarItems)
-        }
+    @TaskAction
+    fun taskAction() {
+        val bcuExtra = project.extensions.getByType(BytecodeUtilExtensions::class.java)
+        YLogger.LOGGER_LEVEL = bcuExtra.loggerLevel
+        logger.quiet("=================== transform start ===================")
+        logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
+        logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
+        val startTime = System.currentTimeMillis()
+        transform(bcuExtra)
+        logger.quiet(">>> total process time: ${System.currentTimeMillis() - startTime} ms")
+        logger.quiet("=================== transform end   ===================")
     }
 
-    private fun process(
-        jis: Collection<JarInput>,
-        dis: Collection<DirectoryInput>,
-        output: TransformOutputProvider,
-        dirItems: LinkedList<Pair<File, ProcessItem>>,
-        jarItems: LinkedList<JarProcessItem>,
-    ) {
-        jis.forEach { input ->
-            val src = input.file
-            val dest = output.getContentLocation(
-                input.name,
-                input.contentTypes,
-                input.scopes,
-                Format.JAR
-            )
-            val notNeeds = LinkedList<JarEntry>()
-            val needs = LinkedList<Pair<JarEntry, ProcessItem>>()
-            JarFile(src).use { jf ->
-                val entries = jf.entries()
-                entries.forEach {
-                    /*
-                        由于该 transform 可能后于其他 transform
-                        此时该 transform 的输入源会变为其他 transform 的输出
-                        此时输入源的名称会发生变化，因此不能简单通过 input.file.name 过滤
-                     */
-                    if (notNeedJarEntries()) notNeeds.push(this) else {
-                        logger.verbose("process jar file --> $name")
-                        needs.push(this to jf.getInputStream(this).visit())
+    private fun transform(bcuExtra: BytecodeUtilExtensions) {
+        val modifierManager = ModifierManager()
+        val modifiers = bcuExtra.modifiers
+        if (modifiers == null) {
+            logger.quiet("not found modifier")
+            return
+        }
+        val nThreads = Runtime.getRuntime().availableProcessors()
+        val executor = Executors.newFixedThreadPool(nThreads)
+
+        // 添加所有 modifier
+        for (index in modifiers.indices) {
+            val clazz = modifiers[index]
+            @Suppress("UNCHECKED_CAST")
+            modifierManager.addModifier(project, clazz as Class<out IModifier>)
+            logger.quiet("apply modifier: $clazz")
+        }
+
+        val outputFile = output.get().asFile
+        logger.quiet("bcu out put >>> $outputFile")
+        outputFile.outputStream().use { fos ->
+            JarOutputStream(fos).use { jos ->
+                var startTime = System.currentTimeMillis()
+
+                // 扫描所有 class
+                val items = scanAll(bcuExtra, modifierManager, executor, jos)
+                logger.quiet(">>> bcu scan time: ${System.currentTimeMillis() - startTime} ms")
+
+                // 处理所有字节码
+                startTime = System.currentTimeMillis()
+                modifierManager.modify(executor)
+                logger.quiet(">>> bcu scan time: ${System.currentTimeMillis() - startTime} ms")
+
+                process(items, executor, jos)
+            }
+        }
+        executor.shutdownNow()
+    }
+
+    private fun scanAll(
+        bcuExtra: BytecodeUtilExtensions,
+        modifierManager: ModifierManager,
+        executor: Executor,
+        jos: JarOutputStream,
+    ): LinkedList<ProcessItem> {
+        val needs = LinkedList<ProcessItem>()
+        val throwable = AtomicReference<Throwable>()
+        // 处理 jar
+        val files = allJars.get().map { it.asFile }
+        var latch = CountDownLatch(files.size)
+        files.forEach { file ->
+            executor.exec(latch, { throwable.set(it) }) {
+                JarFile(file).use { jf ->
+                    jf.entries().iterator().forEach { entry ->
+                        if (entry.notNeedJarEntries(bcuExtra.notNeedJar)) {
+                            val bytes = jf.getInputStream(entry).use { it.readBytes() }
+                            synchronized(jos) {
+                                jos.putNextEntry(JarEntry(entry.name))
+                                jos.write(bytes)
+                                jos.closeEntry()
+                            }
+                        } else {
+                            logger.verbose("process jar file --> ${entry.name}")
+                            val item = jf
+                                .getInputStream(entry)
+                                .visit(entry.name, modifierManager)
+                            synchronized(needs) {
+                                needs.push(item)
+                            }
+                        }
                     }
                 }
             }
-            if (needs.isEmpty()) src.copyTo(dest)
-            else jarItems.push(JarProcessItem(src, dest, notNeeds, needs))
         }
-        dis.forEach { input ->
-            val src = input.file
-            val dest = output.getContentLocation(
-                input.name,
-                input.contentTypes,
-                input.scopes,
-                Format.DIRECTORY
-            )
-            src.copyTo(dest)
-            dest.walk().forEach test@{
-                if (!it.isNeedFile()) return@test
-                logger.verbose("process dir file --> ${it.name}")
-                dirItems.push(it to it.inputStream().visit())
+        latch.await()
+        var error: Throwable? = throwable.get()
+        if (error != null) {
+            throw error
+        }
+        // 处理 dir
+        val directories = allDirectories.get()
+        latch = CountDownLatch(directories.size)
+        directories.forEach { dir ->
+            val rootDir = dir.asFile
+            val rootUri = rootDir.toURI()
+            rootDir.walk().filter { it.isFile }.forEach { file ->
+                executor.exec(latch, { throwable.set(it) }) {
+                    logger.verbose("process dir file --> ${file.name}")
+                    val entryName = rootUri
+                        .relativize(file.toURI()).path
+                        .replace(File.separatorChar, '/')
+                    synchronized(needs) {
+                        needs.push(file.inputStream().visit(entryName, modifierManager))
+                    }
+                }
             }
         }
+        latch.await()
+        error = throwable.get()
+        if (error != null) {
+            throw error
+        }
+        return needs
     }
 
-    private fun process(dirItems: LinkedList<Pair<File, ProcessItem>>, jarItems: LinkedList<JarProcessItem>) {
-        modifierManager.modify {
-            it.run()
-        }
-        val executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors())
-        var throwable: Throwable? = null
-        val dirLatch = CountDownLatch(dirItems.size)
-        dirItems.forEach { pair ->
-            val dest = pair.first
-            val item = pair.second
-            executor.exec(dirLatch, onError = { throwable = it }) {
+    private fun process(items: LinkedList<ProcessItem>, executor: Executor, jos: JarOutputStream) {
+        val throwable = AtomicReference<Throwable>()
+        // 处理 jar
+        val latch = CountDownLatch(items.size)
+        items.forEach { item ->
+            executor.exec(latch, { throwable.set(it) }) {
                 val cw = ClassWriter(item.classReader, 0)
                 item.classNode.accept(cw)
-                FileOutputStream(dest).use { it.write(cw.toByteArray()) }
-            }
-        }
-        dirLatch.await()
-        throwable?.also { executor.shutdownNow();throw it }
-        val jarLatch = CountDownLatch(jarItems.size)
-        jarItems.forEach { jpi ->
-            executor.exec(jarLatch, onError = { throwable = it }) {
-                JarFile(jpi.src).use { jf ->
-                    JarOutputStream(jpi.dest.outputStream()).use { jos ->
-                        jpi.needs.forEach { need ->
-                            val item = need.second
-                            val cw = ClassWriter(item.classReader, 0)
-                            item.classNode.accept(cw)
-                            jos.putNextEntry(JarEntry(need.first.name))
-                            jos.write(cw.toByteArray())
-                            jos.closeEntry()
-                        }
-                        jpi.notNeeds.forEach { notNeed ->
-                            jos.putNextEntry(JarEntry(notNeed.name))
-                            jos.write(jf.getInputStream(notNeed).readBytes())
-                            jos.closeEntry()
-                        }
-                    }
+                synchronized(jos) {
+                    jos.putNextEntry(JarEntry(item.entryName))
+                    jos.write(cw.toByteArray())
+                    jos.closeEntry()
                 }
             }
         }
-        jarLatch.await()
-        executor.shutdownNow()
-        throwable?.also { throw it }
+        latch.await()
+        val error: Throwable? = throwable.get()
+        if (error != null) {
+            throw error
+        }
     }
 
-    private fun InputStream.visit() = use {
+    private fun InputStream.visit(entryName: String, modifierManager: ModifierManager) = use {
         val cr = ClassReader(it)
         val cv = ClassNode()
         cr.accept(cv, 0)
         modifierManager.scan(cv)
-        ProcessItem(cr, cv)
+        ProcessItem(entryName, cr, cv)
     }
 
-    private fun JarEntry.notNeedJarEntries(): Boolean =
+    private fun JarEntry.notNeedJarEntries(notNeedJar: ((entryName: String) -> Boolean)?): Boolean =
         name.endsWith(".class").not()
             || checkAndroidRFile(name)
             || name.startsWith("META-INF/")
             || name.startsWith("com/ysj/lib/bytecodeutil/")
-            || extensions.notNeedJar?.invoke(name) ?: false
-
-    private fun File.isNeedFile(): Boolean = isFile && extension == "class"
-
-    private inline fun <T> Enumeration<T>.forEach(block: T.() -> Unit) {
-        while (hasMoreElements()) nextElement().block()
-    }
-
-    private inline fun doTransform(
-        transformInvocation: TransformInvocation,
-        block: (
-            context: Context,
-            inputs: Collection<TransformInput>,
-            referencedInputs: Collection<TransformInput>,
-            outputProvider: TransformOutputProvider,
-            isIncremental: Boolean
-        ) -> Unit
-    ) {
-        YLogger.LOGGER_LEVEL = extensions.loggerLevel
-        logger.quiet("=================== $PLUGIN_NAME transform start ===================")
-        logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
-        logger.quiet(">>> isIncremental: ${transformInvocation.isIncremental}")
-        logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
-        val startTime = System.currentTimeMillis()
-        block(
-            transformInvocation.context,
-            transformInvocation.inputs,
-            transformInvocation.referencedInputs,
-            transformInvocation.outputProvider,
-            transformInvocation.isIncremental
-        )
-        logger.quiet(">>> total process time: ${System.currentTimeMillis() - startTime} ms")
-        logger.quiet("=================== $PLUGIN_NAME transform end   ===================")
-    }
-
-    private class JarProcessItem(
-        val src: File,
-        val dest: File,
-        val notNeeds: LinkedList<JarEntry>,
-        val needs: LinkedList<Pair<JarEntry, ProcessItem>>
-    )
+            || notNeedJar?.invoke(name) ?: false
 
     private class ProcessItem(
+        val entryName: String,
         val classReader: ClassReader,
         val classNode: ClassNode,
     )
+
 }
