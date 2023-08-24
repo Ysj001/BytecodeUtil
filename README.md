@@ -1,34 +1,37 @@
-### BytecodeUtil
+### BCU
 
-本库对一些常用的字节码修改目的进行封装，目的是为了便于开发者在源码中通过注解控制编译时的字节码生成，以达到一些编码时难以实现的功能。并提供自定义字节码修改器注册接口提升你的发开效率。
+本库是一个安卓平台上的基于 [ASM](https://asm.ow2.io/index.html) 实现的高性能轻量级字节码操作平台。
 
-#### 功能&特点
+使用本库你只需要专注于如何修改字节码，不需要再去写 Gradle 插件和进行复杂且冗余的 IO 处理。
 
-- [x] 基于 Transform + ASM，内部多线程并行处理 IO。高兼容，高效率。
-- [x] 平台化，支持挂载自定义字节码修改器（Modifier）。方便自定义功能开发的同时不会有多余的 Transform 任务产生。Modifier 的执行顺序可依据开发者设置的顺序执行。
-- [x] 可替代 AspectJ 的 AOP 功能
-- [ ] 依赖注入功能
+#### 功能&特性
+
+- [x] 新版已经支持 `AGP 8+`  |  ~~（v1 老版本是基于 `AGP4` 的 `Transform` 接口）~~
+- [x] 基于 `asm-tree`  实现的接口更加易于修改字节码。
+- [x] 插件内部多线程并行 IO 处理，提升编译速度。
+- [x] 插件平台化，支持挂载多个字节码修改器，且使用多个修改器也只会有一次 IO 产生。
+- [x] 提供了 `plugin-api` 供开发者实现自定义的字节码修改器。
+- [x] 提供了 `modifier-aspect` 可用于实现类似 `AspectJ` 的 `AOP` 功能，使安卓面向切面编程更简单！
 
 
 
 #### 了解&编译项目
 
-- BytecodeUtil
+- **BytecodeUtil**
+  
   - `app` 用于演示的 Demo
   - `buildSrc`  管理 maven 发布和版本控制
   - `repos` 的本地 maven 仓库，便于开发时调试
-  - `demo_plugin` 演示挂载自定义的 Modifier
-  - `lib_bytecodeutil_api`  BytecodeUtil 的相关 API
-  - `lib_bytecodeutil_plugin`  BytecodeUtil 的插件，用于编译时修改字节码
-    - `/core/modifoer`  存放自带的字节码修改器
-      - `aspect`  AOP 相关实现
-      - `di` 依赖注入相关实现（待实现）
+  - `lib_bcu_plugin`  插件工程编译时修改字节码在这里实现
+    - `plugin-api`  插件对外提供的 API，基于此可实现自定义的字节码修改器
+  - `lib_modifier_aspect`  用于实现 AOP 的字节码修改器
+    - `aspect-api`  使用该修改器时，上层业务需要用到的接口
+  
+- **注意：在构建前先在项目根目录下执行该命令来生成插件**
 
-- 注意：在构建前先在项目根目录下执行该命令保持本地仓库应用最新的源码
+  `gradlew publishAllPublicationsToLocalRepository`
 
-  gradlew publishAllPublicationsToLocalRepository
-
-- [了解 Gradle 和 Transform 点这](https://blog.csdn.net/qq_35365635/article/details/120355777)
+- [了解 Gradle 和 Transform 点这（文章基于 AGP4）](https://blog.csdn.net/qq_35365635/article/details/120355777)
 
 
 
@@ -36,7 +39,7 @@
 
 ##### 依赖
 
-由于发布到 mavenCentral 有点麻烦，目前暂时先在 release 中下载。
+由于发布到 mavenCentral 有点麻烦，目前先在 release 中下载。
 
 1. 先在 release 中下载所需的代码包后在你的 Gradle 项目根目录下解压
 
@@ -54,7 +57,7 @@
        }
        dependencies {
        	... ...
-           classpath "io.github.ysj001:bytecodeutil-plugin:1.0.4"
+           classpath "io.github.ysj001.bcu:plugin:<last version>"
        }
    }
    
@@ -78,45 +81,31 @@
    bytecodeUtil {
        // 设置插件日志级别
        loggerLevel = 1
-       // 挂载你所需的修改器
+       // 挂载你所需的修改器，可以挂载多个，插件内部按顺序执行
        modifiers = [
-           // 如：挂载 AOP 修改器
-           Class.forName("com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier")
+           // 你要挂载的修改器的 class
+           Class.forName("xxxxx")
    	]
-       // 不需要处理的 jar 包内文件过滤器。合理配置可大幅提升编译速度
-       notNeedJar = { entryName ->
-           // 这里演示个比较通用的
-           (entryName.startsWith("kotlin")
-                   || entryName.startsWith("java")
-                   || entryName.startsWith("org/intellij/")
-                   || entryName.startsWith("org/jetbrains/")
-                   || entryName.startsWith("org/junit/")
-                   || entryName.startsWith("org/hamcrest/")
-                   || entryName.startsWith("com/squareup/")
-                   || entryName.startsWith("android")
-                   || entryName.startsWith("com/google/android/"))
+       // 不需要处理的 class 文件过滤器。合理配置可提升编译速度
+       notNeed = { entryName ->
+           // 这里传 false 表示不过滤
+           false
        }
    }
    
-   ... ...
-       
-   dependencies {
-   	... ...
-       implementation "io.github.ysj001:bytecodeutil-api:1.0.4"
-   }
    ```
 
 ##### 混淆配置
 
 ```text
 -keepclassmembers class * {
-    @com.ysj.lib.bytecodeutil.api.util.BCUKeep <methods>;
+    @com.ysj.lib.bytecodeutil.plugin.api.BCUKeep <methods>;
 }
 ```
 
 ##### AOP
 
-需要挂载该修改器：`com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier`
+需要挂载该修改器：`com.ysj.lib.bcu.modifier.aspect.AspectModifier`
 
 ###### 介绍
 
@@ -190,5 +179,4 @@ Aspect Oriented Programming。面向切面编程，它的应用是指在不修�
       }
   }
   ```
-
 
