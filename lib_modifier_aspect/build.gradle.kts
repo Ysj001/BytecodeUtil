@@ -12,8 +12,12 @@ java {
 }
 
 dependencies {
+    implementation(project("aspect-api"))
+    implementation(project(":lib_bcu_plugin:plugin-api"))
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$KOTLIN_VERSION")
-    implementation(project("api"))
+    compileOnly("org.ow2.asm:asm:9.2")
+    implementation("org.ow2.asm:asm-tree:6.2")
+    implementation("org.ow2.asm:asm-util:6.2")
 }
 
 mavenPublish(LIB_GROUP_ID, LIB_VERSION)

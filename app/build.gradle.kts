@@ -7,7 +7,7 @@ plugins {
 bytecodeUtil {
     loggerLevel = 0
     modifiers = arrayOf(
-        Class.forName("com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier")
+        Class.forName("com.ysj.lib.bcu.modifier.aspect.AspectModifier")
         // 演示挂载 demo_plugin 插件中的修改器
 //        Class.forName("com.ysj.demo.plugin.TestModifier")
     )
@@ -81,7 +81,7 @@ android {
 dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 
-    implementation(project(":lib_bytecodeutil_api"))
+    implementation(project(":lib_modifier_aspect:aspect-api"))
 
 //    implementation(project(":module_test"))
 //    implementation("io.github.ysj00:module_test:1.0.8")

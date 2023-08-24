@@ -1,9 +1,11 @@
 rootProject.name = "BytecodeUtil"
 
-// libs
-include(":lib_bytecodeutil_api")
+// bytecode util libs
 include(":lib_bcu_plugin")
-include(":lib_bcu_plugin:api")
+include(":lib_bcu_plugin:plugin-api")
+// aspect modifier
+include(":lib_modifier_aspect")
+include(":lib_modifier_aspect:aspect-api")
 
 private val hasPlugin = "io.github.ysj001.bcu"
     .replace(".", File.separator)
@@ -13,6 +15,4 @@ private val hasPlugin = "io.github.ysj001.bcu"
 if (hasPlugin) {
     // Demo
     include(":app")
-    //include(":demo_plugin")
-    //include(":module_test")
 }

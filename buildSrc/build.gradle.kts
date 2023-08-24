@@ -25,5 +25,6 @@ dependencies {
     if (hasPlugin) {
         implementation("$groupId:plugin:$version")
         implementation("$groupId:plugin-api:$version")
+        implementation("$groupId:modifier-aspect:$version")
     }
 }
