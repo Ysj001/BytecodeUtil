@@ -19,7 +19,7 @@ open class BytecodeUtilExtensions {
     var loggerLevel: Int = 0
 
     /** 用于确定哪些 Class 不用处理，返回 true 表示不需要处理 */
-    var notNeed: ((entryName: String) -> Boolean)? = null
+    var notNeed: ((entryName: String) -> Boolean) = { false }
 
     /** 附加的修改器 */
     var modifiers: Array<Class<*>>? = null

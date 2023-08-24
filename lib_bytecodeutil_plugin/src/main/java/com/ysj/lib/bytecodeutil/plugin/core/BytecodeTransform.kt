@@ -196,11 +196,11 @@ abstract class BytecodeTransform : DefaultTask() {
         ProcessItem(entryName, cr, cv)
     }
 
-    private fun String.notNeedEntries(notNeed: ((entryName: String) -> Boolean)?): Boolean =
+    private fun String.notNeedEntries(notNeed: ((entryName: String) -> Boolean)): Boolean =
         endsWith(".class").not()
             || checkAndroidRFile(this)
             || startsWith("com/ysj/lib/bytecodeutil/")
-            || notNeed?.invoke(this) ?: false
+            || notNeed.invoke(this)
 
     private fun Executor.exec(latch: CountDownLatch, t: AtomicReference<Throwable>, block: () -> Unit) {
         t.get()?.also { throw it }
