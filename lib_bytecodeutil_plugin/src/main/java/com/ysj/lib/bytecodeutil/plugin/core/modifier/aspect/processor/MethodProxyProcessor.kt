@@ -3,17 +3,38 @@ package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_CALL
 import com.ysj.lib.bytecodeutil.api.util.BCUKeep
-import com.ysj.lib.bytecodeutil.modifier.*
-import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
+import com.ysj.lib.bytecodeutil.modifier.CLASS_TYPE
+import com.ysj.lib.bytecodeutil.modifier.cast
+import com.ysj.lib.bytecodeutil.modifier.classInsnNode
+import com.ysj.lib.bytecodeutil.modifier.firstNode
+import com.ysj.lib.bytecodeutil.modifier.isStatic
 import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
-import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.*
+import com.ysj.lib.bytecodeutil.modifier.md5
+import com.ysj.lib.bytecodeutil.modifier.opcodeLoad
+import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.ASPECT_CLASS_INSTANCE
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.PREFIX_PROXY_METHOD
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.PointcutBean
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.callingPointDesc
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.callingPointInternalName
+import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointDesc
 import org.codehaus.groovy.ast.ClassHelper
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import org.objectweb.asm.tree.*
+import org.objectweb.asm.tree.AnnotationNode
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.FieldInsnNode
+import org.objectweb.asm.tree.InsnList
+import org.objectweb.asm.tree.InsnNode
+import org.objectweb.asm.tree.IntInsnNode
+import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.TypeInsnNode
+import org.objectweb.asm.tree.VarInsnNode
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
-import kotlin.collections.ArrayList
 
 /**
  * 方法调用代理处理器
@@ -71,7 +92,9 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     private fun MethodInsnNode.addBCUKeep() {
         val classNode = aspectModifier.allClassNode[owner] ?: return
-        classNode.methods.lock { find { it.name == name && it.desc == desc }?.addBCUKeep() }
+        synchronized(classNode.methods) {
+            classNode.methods.find { it.name == name && it.desc == desc }?.addBCUKeep()
+        }
     }
 
     /**
@@ -101,7 +124,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
      */
     private fun ClassNode.generateProxyMethod(pointcut: PointcutBean, calling: MethodInsnNode, hasJoinPoint: Boolean): MethodNode {
         val proxyName = "${calling.owner}${calling.name}${calling.desc}".md5()
-        methods.lock {
+        synchronized(methods) {
             var find: MethodNode? = null
             // 代理方法都添加到了 methods 的后面，从后面查比较快
             for (i in methods.lastIndex downTo 0) {
@@ -183,7 +206,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             }
             add(InsnNode(returnType.getOpcode(Opcodes.IRETURN)))
         }
-        methods.lock {
+        synchronized(methods) {
             method.addBCUKeep()
             methods.add(method)
         }
@@ -252,8 +275,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
         val classNode = aspectModifier.allClassNode[node.owner] ?: return false
         val predicate: (AnnotationNode) -> Boolean = { Pattern.matches(pointcutBean.target, it.desc) }
-        return classNode.methods.lock {
-            find {
+        return synchronized(classNode.methods) {
+            classNode.methods.find {
                 it.name == node.name && it.desc == node.desc &&
                     (it.visibleAnnotations?.find(predicate) != null || it.invisibleAnnotations?.find(predicate) != null)
             } != null

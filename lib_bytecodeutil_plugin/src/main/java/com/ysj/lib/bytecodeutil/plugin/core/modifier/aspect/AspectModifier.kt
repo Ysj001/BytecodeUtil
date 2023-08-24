@@ -8,9 +8,8 @@ import com.ysj.lib.bytecodeutil.api.aspect.POSITION_RETURN
 import com.ysj.lib.bytecodeutil.api.aspect.POSITION_START
 import com.ysj.lib.bytecodeutil.api.aspect.Pointcut
 import com.ysj.lib.bytecodeutil.modifier.IModifier
-import com.ysj.lib.bytecodeutil.modifier.exec
-import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
+import com.ysj.lib.bytecodeutil.modifier.params
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodInnerProcessor
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes
@@ -26,7 +25,7 @@ import org.objectweb.asm.tree.TypeInsnNode
 import java.util.LinkedList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import java.util.regex.Pattern
 
 /**
@@ -121,13 +120,16 @@ class AspectModifier(
     }
 
     override fun modify(executor: Executor) {
-        var throwable: Throwable? = null
+        val throwable = AtomicReference<Throwable>()
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {
-            // 注意这里没加锁，内部不要多线程修改
-            executor.exec(latch, onError = { throwable = it }) {
+            executor.exec(latch, throwable) {
+                // 注意这里没加锁，内部不要多线程修改
                 val classNode = it.value
-                if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } != null) {
+                val annotationNode = classNode
+                    .invisibleAnnotations
+                    ?.find { it.desc == ANNOTATION_ASPECT_DESC }
+                if (annotationNode != null) {
                     handleAspect(classNode)
                     return@exec
                 }
@@ -135,7 +137,7 @@ class AspectModifier(
             }
         }
         latch.await()
-        throwable?.also { throw it }
+        throwable.get()?.also { throw it }
     }
 
     /**
@@ -254,5 +256,23 @@ class AspectModifier(
                 Pattern.matches(funName, mn.name) &&
                 Pattern.matches(funDesc, mn.desc)) ||
                 matchSuperClass(mn, allClassNode[superName]?.superName ?: return false)
+    }
+
+    private fun Executor.exec(latch: CountDownLatch, t: AtomicReference<Throwable>, block: () -> Unit) {
+        t.get()?.also { throw it }
+        execute {
+            if (latch.count == 0L) {
+                return@execute
+            }
+            try {
+                block()
+                latch.countDown()
+            } catch (e: Throwable) {
+                t.set(e)
+                while (latch.count > 0) {
+                    latch.countDown()
+                }
+            }
+        }
     }
 }
