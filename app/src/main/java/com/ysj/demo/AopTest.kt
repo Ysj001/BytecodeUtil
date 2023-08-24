@@ -1,7 +1,13 @@
 package com.ysj.demo
 
 import android.util.Log
-import com.ysj.lib.bytecodeutil.api.aspect.*
+import com.ysj.lib.bcu.modifier.aspect.api.Aspect
+import com.ysj.lib.bcu.modifier.aspect.api.CallingPoint
+import com.ysj.lib.bcu.modifier.aspect.api.JoinPoint
+import com.ysj.lib.bcu.modifier.aspect.api.POSITION_CALL
+import com.ysj.lib.bcu.modifier.aspect.api.POSITION_RETURN
+import com.ysj.lib.bcu.modifier.aspect.api.POSITION_START
+import com.ysj.lib.bcu.modifier.aspect.api.Pointcut
 
 /**
  * 演示切面和切入点的定义
