@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.api.logger
+package com.ysj.lib.bytecodeutil.plugin.api.logger
 
 interface ILogger {
     /**

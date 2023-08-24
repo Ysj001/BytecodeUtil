@@ -1,8 +1,8 @@
 package com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.processor
 
 import com.ysj.lib.bytecodeutil.api.aspect.JoinPoint
-import com.ysj.lib.bytecodeutil.api.argsInsnList
-import com.ysj.lib.bytecodeutil.api.isStatic
+import com.ysj.lib.bytecodeutil.plugin.api.argsInsnList
+import com.ysj.lib.bytecodeutil.plugin.api.isStatic
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointDesc
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.joinPointInternalName

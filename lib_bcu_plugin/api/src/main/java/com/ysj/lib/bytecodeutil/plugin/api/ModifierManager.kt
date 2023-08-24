@@ -1,6 +1,6 @@
-package com.ysj.lib.bytecodeutil.api
+package com.ysj.lib.bytecodeutil.plugin.api
 
-import com.ysj.lib.bytecodeutil.api.logger.YLogger
+import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.Executor

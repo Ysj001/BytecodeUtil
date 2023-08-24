@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.api
+package com.ysj.lib.bytecodeutil.plugin.api
 
 import org.codehaus.groovy.ast.ClassHelper
 import org.objectweb.asm.Opcodes

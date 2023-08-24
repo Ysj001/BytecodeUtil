@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.api
+package com.ysj.lib.bytecodeutil.plugin.api
 
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode

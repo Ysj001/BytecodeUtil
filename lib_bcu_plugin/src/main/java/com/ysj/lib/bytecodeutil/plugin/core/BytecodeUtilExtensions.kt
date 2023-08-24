@@ -1,6 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin.core
 
-import com.ysj.lib.bytecodeutil.api.logger.YLogger
+import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 
 /**
  * Gradle 扩展属性
