@@ -20,7 +20,7 @@ buildscript {
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
-        classpath("$LIB_GROUP_ID:bytecodeutil-plugin:$LIB_VERSION")
+//        classpath("$LIB_GROUP_ID:bytecodeutil-plugin:$LIB_VERSION")
         // demo plugin
 //        classpath("$PROJECT_LIB_GROUP_ID:demo-plugin:$PROJECT_LIB_VERSION")
     }
