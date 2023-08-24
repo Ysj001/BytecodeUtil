@@ -18,7 +18,7 @@ val Project.MAVEN_LOCAL: URI
     get() = File(rootDir, "repos").toURI()
 
 const val LIB_VERSION = "1.0.8"
-const val LIB_GROUP_ID = "io.github.ysj001"
+const val LIB_GROUP_ID = "io.github.ysj001.bcu"
 
 const val POM_URL = "https://github.com/Ysj001/BytecodeUtil"
 

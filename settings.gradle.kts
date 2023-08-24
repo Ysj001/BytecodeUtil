@@ -2,10 +2,10 @@ rootProject.name = "BytecodeUtil"
 
 // libs
 include(":lib_bytecodeutil_api")
-include(":lib_bytecodeutil_plugin")
-include(":lib_bytecodeutil_modifier")
+include(":lib_bcu_plugin")
+include(":lib_bcu_plugin:api")
 
-private val hasPlugin = "io.github.ysj001"
+private val hasPlugin = "io.github.ysj001.bcu"
     .replace(".", File.separator)
     .let { File(File(rootDir, "repos"), it) }
     .run { isDirectory && !list().isNullOrEmpty() }

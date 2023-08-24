@@ -16,15 +16,14 @@ dependencies {
     implementation(gradleKotlinDsl())
     implementation("com.android.tools.build:gradle-api:8.1.1")
     implementation("com.squareup.okhttp3:okhttp:4.9.2")
-    val groupId = "io.github.ysj001"
+    val groupId = "io.github.ysj001.bcu"
     val version = "1.0.8"
     val hasPlugin = groupId
         .replace(".", File.separator)
         .let { File(reposDir, it) }
         .run { isDirectory && !list().isNullOrEmpty() }
     if (hasPlugin) {
-        implementation("$groupId:bytecodeutil-api:$version")
-        implementation("$groupId:bytecodeutil-modifier:$version")
-        implementation("$groupId:bytecodeutil-plugin:$version")
+        implementation("$groupId:plugin:$version")
+        implementation("$groupId:plugin-api:$version")
     }
 }
