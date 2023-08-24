@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.api.util
+package com.ysj.lib.bytecodeutil.plugin.api
 
 /**
  * BytecodeUtil 插件编译后需要保留不能混淆的方法。
