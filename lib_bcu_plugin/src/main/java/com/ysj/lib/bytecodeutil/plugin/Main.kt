@@ -3,8 +3,6 @@ package com.ysj.lib.bytecodeutil.plugin
 import com.android.build.api.artifact.ScopedArtifact
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.ScopedArtifacts
-import com.ysj.lib.bytecodeutil.plugin.core.BytecodeUtilExtensions
-import com.ysj.lib.bytecodeutil.plugin.core.BytecodeTransform
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 

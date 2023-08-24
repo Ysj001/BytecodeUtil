@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.plugin.core
+package com.ysj.lib.bytecodeutil.plugin
 
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 

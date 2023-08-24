@@ -11,7 +11,6 @@ import com.ysj.lib.bytecodeutil.plugin.api.isStatic
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.api.md5
 import com.ysj.lib.bytecodeutil.plugin.api.opcodeLoad
-import com.ysj.lib.bytecodeutil.plugin.core.BCU_KEEP_DESC
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.ASPECT_CLASS_INSTANCE
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.AspectModifier
 import com.ysj.lib.bytecodeutil.plugin.core.modifier.aspect.PREFIX_PROXY_METHOD
@@ -48,6 +47,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     // 记录代理替换的节点。key：代理的节点 value：源节点
     private val recordProxyNode = ConcurrentHashMap<MethodInsnNode, MethodInsnNode>()
+
+    private val bcuKeepDesc = Type.getType(BCUKeep::class.java).descriptor
 
     fun process(pointcutBean: PointcutBean, classNode: ClassNode, methodNode: MethodNode) {
         if (pointcutBean.position != POSITION_CALL) return
@@ -106,8 +107,8 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
             annotations = ArrayList()
             invisibleAnnotations = annotations
         }
-        if (annotations.find { it.desc == BCU_KEEP_DESC } != null) return
-        annotations.add(AnnotationNode(BCU_KEEP_DESC))
+        if (annotations.find { it.desc == bcuKeepDesc } != null) return
+        annotations.add(AnnotationNode(bcuKeepDesc))
     }
 
     /**

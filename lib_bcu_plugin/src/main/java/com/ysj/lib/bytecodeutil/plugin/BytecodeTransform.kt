@@ -1,4 +1,4 @@
-package com.ysj.lib.bytecodeutil.plugin.core
+package com.ysj.lib.bytecodeutil.plugin
 
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.ModifierManager
@@ -201,6 +201,27 @@ abstract class BytecodeTransform : DefaultTask() {
             || checkAndroidRFile(this)
             || startsWith("com/ysj/lib/bytecodeutil/")
             || notNeed.invoke(this)
+
+    private fun checkAndroidRFile(fileName: String) =
+        fileName.endsWith("R.class")
+            || fileName.endsWith("R\$raw.class")
+            || fileName.endsWith("R\$styleable.class")
+            || fileName.endsWith("R\$layout.class")
+            || fileName.endsWith("R\$xml.class")
+            || fileName.endsWith("R\$attr.class")
+            || fileName.endsWith("R\$color.class")
+            || fileName.endsWith("R\$bool.class")
+            || fileName.endsWith("R\$mipmap.class")
+            || fileName.endsWith("R\$dimen.class")
+            || fileName.endsWith("R\$interpolator.class")
+            || fileName.endsWith("R\$plurals.class")
+            || fileName.endsWith("R\$style.class")
+            || fileName.endsWith("R\$integer.class")
+            || fileName.endsWith("R\$id.class")
+            || fileName.endsWith("R\$animator.class")
+            || fileName.endsWith("R\$string.class")
+            || fileName.endsWith("R\$drawable.class")
+            || fileName.endsWith("R\$anim.class")
 
     private fun Executor.exec(latch: CountDownLatch, t: AtomicReference<Throwable>, block: () -> Unit) {
         t.get()?.also { throw it }
