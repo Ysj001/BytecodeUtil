@@ -56,10 +56,6 @@ fun Project.mavenPublish(groupId: String? = null, version: String? = null) {
             name = "local"
             url = MAVEN_LOCAL
         }
-        maven {
-            name = "local2"
-            url = MAVEN_LOCAL2
-        }
 //        maven {
 //            name = "mavenCentral"
 //            setUrl(libVersion.run {

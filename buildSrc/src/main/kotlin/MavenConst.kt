@@ -17,9 +17,6 @@ const val MAVEN_CENTRAL_SNAPSHOTS = "https://s01.oss.sonatype.org/content/reposi
 val Project.MAVEN_LOCAL: URI
     get() = File(rootDir, "repos").toURI()
 
-val Project.MAVEN_LOCAL2: URI
-    get() = File(rootDir, "repos1").toURI()
-
 const val LIB_VERSION = "1.0.8"
 const val LIB_GROUP_ID = "io.github.ysj001"
 

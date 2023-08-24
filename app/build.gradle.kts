@@ -11,6 +11,8 @@ bytecodeUtil {
         // 演示挂载 demo_plugin 插件中的修改器
 //        Class.forName("com.ysj.demo.plugin.TestModifier")
     )
+    notNeed = { entryName ->
+//        false
         entryName.startsWith("kotlin/")
             || entryName.startsWith("kotlinx/")
             || entryName.startsWith("javax/")
@@ -19,10 +21,9 @@ bytecodeUtil {
             || entryName.startsWith("org/junit/")
             || entryName.startsWith("org/hamcrest/")
             || entryName.startsWith("com/squareup/")
-    notNeed = { entryName ->
-//                || entryName.startsWith("androidx/")
-//                || entryName.startsWith("android/")
-//                || entryName.startsWith("com/google/android/")
+            || entryName.startsWith("androidx/")
+            || entryName.startsWith("android/")
+            || entryName.startsWith("com/google/android/")
     }
 }
 

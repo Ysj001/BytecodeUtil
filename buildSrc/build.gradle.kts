@@ -18,7 +18,13 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.2")
     val groupId = "io.github.ysj001"
     val version = "1.0.8"
-    implementation("$groupId:bytecodeutil-api:$version")
-    implementation("$groupId:bytecodeutil-modifier:$version")
-    implementation("$groupId:bytecodeutil-plugin:$version")
+    val hasPlugin = groupId
+        .replace(".", File.separator)
+        .let { File(reposDir, it) }
+        .run { isDirectory && !list().isNullOrEmpty() }
+    if (hasPlugin) {
+        implementation("$groupId:bytecodeutil-api:$version")
+        implementation("$groupId:bytecodeutil-modifier:$version")
+        implementation("$groupId:bytecodeutil-plugin:$version")
+    }
 }
