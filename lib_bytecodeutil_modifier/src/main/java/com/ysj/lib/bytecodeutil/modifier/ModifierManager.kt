@@ -3,7 +3,6 @@ package com.ysj.lib.bytecodeutil.modifier
 import com.ysj.lib.bytecodeutil.modifier.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 
 /**
@@ -14,12 +13,13 @@ import java.util.concurrent.Executor
  */
 class ModifierManager : IModifier {
 
-    override val allClassNode = ConcurrentHashMap<String, ClassNode>()
+    override val allClassNode = HashMap<String, ClassNode>(400)
 
     private val modifiers = ArrayList<IModifier>()
 
     private val logger = YLogger.getLogger(javaClass)
 
+    @Synchronized
     override fun scan(classNode: ClassNode) {
         allClassNode[classNode.name] = classNode
         modifiers.forEach { it.scan(classNode) }
