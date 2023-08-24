@@ -28,7 +28,7 @@ class Main : Plugin<Project> {
                     BytecodeTransform::class.java,
                 )
                 variant.artifacts
-                    .forScope(ScopedArtifacts.Scope.PROJECT)
+                    .forScope(ScopedArtifacts.Scope.ALL)
                     .use(task)
                     .toTransform(
                         ScopedArtifact.CLASSES,
