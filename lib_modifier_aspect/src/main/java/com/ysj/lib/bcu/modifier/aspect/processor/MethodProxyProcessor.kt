@@ -232,29 +232,29 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
         ))
     }
 
-    private fun Array<Type>.argTypesArray() = InsnList().apply {
-        add(IntInsnNode(Opcodes.BIPUSH, size))
-        add(TypeInsnNode(Opcodes.ANEWARRAY, CLASS_TYPE.internalName))
+    private fun Array<Type>.argTypesArray() = InsnList().also { list ->
+        list.add(IntInsnNode(Opcodes.BIPUSH, size))
+        list.add(TypeInsnNode(Opcodes.ANEWARRAY, CLASS_TYPE.internalName))
         forEachIndexed { i, t ->
-            add(InsnNode(Opcodes.DUP))
-            add(IntInsnNode(Opcodes.BIPUSH, i))
-            add(t.classInsnNode)
-            add(InsnNode(Opcodes.AASTORE))
+            list.add(InsnNode(Opcodes.DUP))
+            list.add(IntInsnNode(Opcodes.BIPUSH, i))
+            list.add(t.classInsnNode)
+            list.add(InsnNode(Opcodes.AASTORE))
         }
     }
 
-    private fun Array<Type>.argsArray(startLocalVarIndex: Int) = InsnList().apply {
+    private fun Array<Type>.argsArray(startLocalVarIndex: Int) = InsnList().also { list ->
         var localVarIndex = startLocalVarIndex
-        add(IntInsnNode(Opcodes.BIPUSH, size))
-        add(TypeInsnNode(Opcodes.ANEWARRAY, Type.getType(Any::class.java).internalName))
+        list.add(IntInsnNode(Opcodes.BIPUSH, size))
+        list.add(TypeInsnNode(Opcodes.ANEWARRAY, Type.getType(Any::class.java).internalName))
         forEachIndexed { i, t ->
-            add(InsnNode(Opcodes.DUP))
-            add(IntInsnNode(Opcodes.BIPUSH, i))
-            add(VarInsnNode(t.opcodeLoad(), localVarIndex))
+            list.add(InsnNode(Opcodes.DUP))
+            list.add(IntInsnNode(Opcodes.BIPUSH, i))
+            list.add(VarInsnNode(t.opcodeLoad(), localVarIndex))
             if (t.sort in Type.BOOLEAN..Type.DOUBLE) {
                 // primitive types must be boxed
                 val wrapperType = t.wrapperType
-                add(MethodInsnNode(
+                list.add(MethodInsnNode(
                     Opcodes.INVOKESTATIC,
                     wrapperType.internalName,
                     "valueOf",
@@ -262,7 +262,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
                     false
                 ))
             }
-            add(InsnNode(Opcodes.AASTORE))
+            list.add(InsnNode(Opcodes.AASTORE))
             // 计算当前参数的索引
             localVarIndex += t.size
         }
