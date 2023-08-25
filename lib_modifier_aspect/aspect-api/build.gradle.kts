@@ -15,4 +15,4 @@ dependencies {
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$KOTLIN_VERSION")
 }
 
-mavenPublish(LIB_GROUP_ID, LIB_VERSION)
+mavenPublish()

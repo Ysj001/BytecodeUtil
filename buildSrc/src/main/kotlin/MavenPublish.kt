@@ -30,9 +30,9 @@ fun Project.mavenPublish(groupId: String? = null, version: String? = null) {
     apply(plugin = "maven-publish")
     apply(plugin = "signing")
     // 获取 module 中定义的发布信息
-    val pomGroupId = groupId ?: properties["POM_GROUP_ID"] as String
+    val pomGroupId = groupId ?: this.group as String
     val pomAftId = properties["POM_ARTIFACT_ID"] as String
-    val pomVersion = version ?: properties["POM_VERSION"] as String
+    val pomVersion = version ?: this.version as String
     val pomDesc = properties["POM_DESCRIPTION"] as String
     val pomUrl = properties["POM_URL"] as String
     val pomPkgType = properties["POM_PACKAGING"] as String

@@ -20,4 +20,4 @@ dependencies {
     implementation("org.ow2.asm:asm-util:6.2")
 }
 
-mavenPublish(LIB_GROUP_ID, LIB_VERSION)
+mavenPublish()
