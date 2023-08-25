@@ -19,11 +19,14 @@ import java.io.InputStream
 import java.util.LinkedList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
+import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
 /**
@@ -67,7 +70,13 @@ abstract class BytecodeTransform : DefaultTask() {
                 logger.quiet(">>> apply modifier: ${clazz.name}")
             }
             val nThreads = Runtime.getRuntime().availableProcessors()
-            val executor = Executors.newFixedThreadPool(nThreads)
+            val executor = ThreadPoolExecutor(
+                2,
+                max(2, nThreads),
+                60,
+                TimeUnit.SECONDS,
+                LinkedBlockingQueue()
+            )
             try {
                 transform(Transform(bcuExtra, modifierManager, executor))
             } finally {
@@ -128,7 +137,7 @@ abstract class BytecodeTransform : DefaultTask() {
                             logger.verbose("process jar file --> ${entry.name}")
                             val item = jf
                                 .getInputStream(entry)
-                                .visit(entry.name, transform.modifierManager)
+                                .use { it.visit(entry.name, transform.modifierManager) }
                             synchronized(needs) {
                                 needs.push(item)
                             }
@@ -150,15 +159,20 @@ abstract class BytecodeTransform : DefaultTask() {
                             .relativize(file.toURI()).path
                             .replace(File.separatorChar, '/')
                         if (entryName.notNeedEntries(transform.extensions.notNeed)) {
+                            val entry = JarEntry(entryName)
+                            val bytes = file.readBytes()
                             synchronized(jos) {
-                                jos.putNextEntry(JarEntry(entryName))
-                                jos.write(file.readBytes())
+                                jos.putNextEntry(entry)
+                                jos.write(bytes)
                                 jos.closeEntry()
                             }
                         } else {
                             logger.verbose("process dir file --> $entryName")
+                            val item = file
+                                .inputStream()
+                                .use { it.visit(entryName, transform.modifierManager) }
                             synchronized(needs) {
-                                needs.push(file.inputStream().visit(entryName, transform.modifierManager))
+                                needs.push(item)
                             }
                         }
                     }
@@ -177,9 +191,11 @@ abstract class BytecodeTransform : DefaultTask() {
             executor.exec(latch, throwable) {
                 val cw = ClassWriter(item.classReader, 0)
                 item.classNode.accept(cw)
+                val bytes = cw.toByteArray()
+                val entry = JarEntry(item.entryName)
                 synchronized(jos) {
-                    jos.putNextEntry(JarEntry(item.entryName))
-                    jos.write(cw.toByteArray())
+                    jos.putNextEntry(entry)
+                    jos.write(bytes)
                     jos.closeEntry()
                 }
             }
