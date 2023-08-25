@@ -17,6 +17,8 @@
 
 #### 了解&编译项目
 
+![BCU 架构图](readme_assets/BytecodeUtil 架构图.jpg)
+
 - **BytecodeUtil**
   
   - `app` 用于演示的 Demo
