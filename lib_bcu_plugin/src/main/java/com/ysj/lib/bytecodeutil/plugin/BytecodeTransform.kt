@@ -189,7 +189,7 @@ abstract class BytecodeTransform : DefaultTask() {
         while (items.isNotEmpty()) {
             val item = items.pop()
             executor.exec(latch, throwable) {
-                val cw = ClassWriter(item.classReader, 0)
+                val cw = ClassWriter(item.classReader, ClassWriter.COMPUTE_MAXS)
                 item.classNode.accept(cw)
                 val bytes = cw.toByteArray()
                 val entry = JarEntry(item.entryName)
