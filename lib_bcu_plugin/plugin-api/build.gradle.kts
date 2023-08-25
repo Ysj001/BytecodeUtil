@@ -4,8 +4,8 @@ plugins {
     id("kotlin")
 }
 
-group = LIB_GROUP_ID
-version = LIB_VERSION
+group = properties["bcu.groupId"] as String
+version = properties["bcu.plugin.version"] as String
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
