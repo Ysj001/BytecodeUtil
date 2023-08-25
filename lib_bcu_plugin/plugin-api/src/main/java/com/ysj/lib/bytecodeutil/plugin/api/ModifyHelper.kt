@@ -40,11 +40,11 @@ val Type.classInsnNode: AbstractInsnNode
 /** 方法的第一个可用 node */
 val MethodNode.firstNode: AbstractInsnNode?
     get() = if (name == "<init>") {
-        var result: AbstractInsnNode = instructions.first
-        while (result.opcode != Opcodes.INVOKESPECIAL) {
+        var result: AbstractInsnNode? = instructions.first
+        while (result != null && result.opcode != Opcodes.INVOKESPECIAL) {
             result = result.next
         }
-        result.next
+        result?.next ?: instructions.first
     } else {
         var result: AbstractInsnNode? = instructions.first
         while (result != null && result.opcode != -1) {
