@@ -11,8 +11,4 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-dependencies {
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$KOTLIN_VERSION")
-}
-
 mavenPublish()
