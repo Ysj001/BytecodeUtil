@@ -17,7 +17,7 @@
 
 #### 了解&编译项目
 
-![BCU 架构图](readme_assets/BytecodeUtil 架构图.jpg)
+![BCU 架构图](readme_assets/bcu_structure.jpg)
 
 - **BytecodeUtil**
   
