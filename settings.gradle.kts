@@ -10,7 +10,7 @@ include(":lib_modifier_aspect:aspect-api")
 include(":lib_modifier_component_di")
 include(":lib_modifier_component_di:component-di-api")
 
-private val hasPlugin = File("gradle.properties")
+private val hasPlugin = File(rootDir, "gradle.properties")
     .inputStream()
     .use { java.util.Properties().apply { load(it) } }
     .getProperty("bcu.groupId")

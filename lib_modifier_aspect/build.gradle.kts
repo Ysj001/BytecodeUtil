@@ -4,7 +4,7 @@ plugins {
 }
 
 group = properties["bcu.groupId"] as String
-version = "1.0.0-beta"
+version = properties["bcu.modifier.aspect.version"] as String
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
