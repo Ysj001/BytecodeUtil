@@ -62,13 +62,6 @@ abstract class BytecodeTransform : DefaultTask() {
         logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
         // 添加所有 modifier
         val useTime = measureTimeMillis {
-            val modifierManager = ModifierManager()
-            for (index in modifiers.indices) {
-                val clazz = modifiers[index]
-                @Suppress("UNCHECKED_CAST")
-                modifierManager.addModifier(project, clazz as Class<out IModifier>)
-                logger.quiet(">>> apply modifier: ${clazz.name}")
-            }
             val nThreads = Runtime.getRuntime().availableProcessors()
             val executor = ThreadPoolExecutor(
                 2,
@@ -78,6 +71,13 @@ abstract class BytecodeTransform : DefaultTask() {
                 LinkedBlockingQueue()
             )
             try {
+                val modifierManager = ModifierManager(project, executor)
+                for (index in modifiers.indices) {
+                    val clazz = modifiers[index]
+                    @Suppress("UNCHECKED_CAST")
+                    modifierManager.addModifier(clazz as Class<out IModifier>)
+                    logger.quiet(">>> apply modifier: ${clazz.name}")
+                }
                 transform(Transform(bcuExtra, modifierManager, executor))
             } finally {
                 executor.shutdownNow()
@@ -99,7 +99,7 @@ abstract class BytecodeTransform : DefaultTask() {
 
                 // 处理所有字节码
                 startTime = System.currentTimeMillis()
-                transform.modifierManager.modify(transform.executor)
+                transform.modifierManager.modify()
                 logger.quiet(">>> bcu modify time: ${System.currentTimeMillis() - startTime} ms")
 
                 // 把所有字节码写到 output jar

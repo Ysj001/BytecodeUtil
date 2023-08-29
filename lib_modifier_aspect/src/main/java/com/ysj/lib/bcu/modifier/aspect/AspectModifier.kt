@@ -35,6 +35,7 @@ import java.util.regex.Pattern
  * Create time: 2021/3/6
  */
 class AspectModifier(
+    override val executor: Executor,
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
@@ -115,11 +116,13 @@ class AspectModifier(
                     }
                 }
             }
-            collection.add(pointcutBean)
+            synchronized(collection) {
+                collection.add(pointcutBean)
+            }
         }
     }
 
-    override fun modify(executor: Executor) {
+    override fun modify() {
         val throwable = AtomicReference<Throwable>()
         val latch = CountDownLatch(allClassNode.size)
         allClassNode.forEach {

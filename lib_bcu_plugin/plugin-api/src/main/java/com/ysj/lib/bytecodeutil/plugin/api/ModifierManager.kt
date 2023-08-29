@@ -11,7 +11,10 @@ import java.util.concurrent.Executor
  * @author Ysj
  * Create time: 2021/3/6
  */
-class ModifierManager : IModifier {
+class ModifierManager(
+    private val project: Project,
+    override val executor: Executor,
+) : IModifier {
 
     override val allClassNode = HashMap<String, ClassNode>(400)
 
@@ -19,19 +22,22 @@ class ModifierManager : IModifier {
 
     private val logger = YLogger.getLogger(javaClass)
 
-    @Synchronized
     override fun scan(classNode: ClassNode) {
-        allClassNode[classNode.name] = classNode
-        modifiers.forEach { it.scan(classNode) }
+        synchronized(allClassNode) {
+            allClassNode[classNode.name] = classNode
+        }
+        for (index in modifiers.indices) {
+            modifiers[index].scan(classNode)
+        }
     }
 
-    override fun modify(executor: Executor) {
+    override fun modify() {
         val iterator = modifiers.iterator()
         var startTime: Long
         while (iterator.hasNext()) {
             startTime = System.currentTimeMillis()
             val modifier = iterator.next()
-            modifier.modify(executor)
+            modifier.modify()
             // 用完就移除，节约内存，避免 OOM
             iterator.remove()
             val time = System.currentTimeMillis() - startTime
@@ -39,9 +45,10 @@ class ModifierManager : IModifier {
         }
     }
 
-    fun addModifier(project: Project, modifier: Class<out IModifier>) {
-        val constructor = modifier.getConstructor(Map::class.java)
-        val element = constructor.newInstance(allClassNode)
+    fun addModifier(modifier: Class<out IModifier>) {
+        val element = modifier
+            .getConstructor(Executor::class.java, Map::class.java)
+            .newInstance(executor, allClassNode)
         modifiers.add(element)
         element.initialize(project)
     }

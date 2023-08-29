@@ -12,7 +12,16 @@ import java.util.concurrent.Executor
  */
 interface IModifier {
 
-    /** 所有扫描到的 class。key：[ClassNode.name] */
+    /**
+     * 提供至少有 2 个线程的 [Executor]。
+     */
+    val executor: Executor
+
+    /**
+     *  每扫描到一个 class，就会往该集合中存一个。
+     *  - key：[ClassNode.name]
+     *  - value：[ClassNode]
+     * */
     val allClassNode: Map<String, ClassNode>
 
     /**
@@ -21,13 +30,14 @@ interface IModifier {
     fun initialize(project: Project) = Unit
 
     /**
-     * 扫描类所有需要修改的类，每扫描到一个类会回调一次该方法
+     * 每扫到一个需要修改的类就会回调一次。
+     * - 注意：该方法调用是并发的。
      */
     fun scan(classNode: ClassNode)
 
     /**
-     * 开始修改 [scan] 到的类，修改时并发的注意线程安全
+     * 开始修改 [scan] 到的类。
      */
-    fun modify(executor: Executor)
+    fun modify()
 
 }
