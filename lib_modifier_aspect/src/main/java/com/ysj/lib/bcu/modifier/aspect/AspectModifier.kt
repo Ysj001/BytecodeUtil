@@ -7,11 +7,11 @@ import com.ysj.lib.bcu.modifier.aspect.api.POSITION_CALL
 import com.ysj.lib.bcu.modifier.aspect.api.POSITION_RETURN
 import com.ysj.lib.bcu.modifier.aspect.api.POSITION_START
 import com.ysj.lib.bcu.modifier.aspect.api.Pointcut
+import com.ysj.lib.bcu.modifier.aspect.processor.MethodInnerProcessor
+import com.ysj.lib.bcu.modifier.aspect.processor.MethodProxyProcessor
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import com.ysj.lib.bytecodeutil.plugin.api.params
-import com.ysj.lib.bcu.modifier.aspect.processor.MethodInnerProcessor
-import com.ysj.lib.bcu.modifier.aspect.processor.MethodProxyProcessor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.tree.ClassNode
@@ -39,25 +39,28 @@ class AspectModifier(
     override val allClassNode: Map<String, ClassNode>,
 ) : IModifier {
 
-    val cache by lazy { HashMap<String, Any>() }
+    private val cache = HashMap<String, Any?>()
 
     private val logger = YLogger.getLogger(javaClass)
 
-    private val targetClass by lazy { LinkedList<PointcutBean>() }
+    private val targetClass = LinkedList<PointcutBean>()
 
-    private val targetSuperClass by lazy { LinkedList<PointcutBean>() }
+    private val targetSuperClass = LinkedList<PointcutBean>()
 
-    private val targetInterface by lazy { LinkedList<PointcutBean>() }
+    private val targetInterface = LinkedList<PointcutBean>()
 
-    private val targetAnnotation by lazy { LinkedList<PointcutBean>() }
+    private val targetAnnotation = LinkedList<PointcutBean>()
 
-    private val methodInnerProcessor by lazy { MethodInnerProcessor(this) }
+    private val methodInnerProcessor = MethodInnerProcessor(cache)
 
-    private val methodProxyProcessor by lazy { MethodProxyProcessor(this) }
+    private val methodProxyProcessor = MethodProxyProcessor(allClassNode, cache)
 
     override fun scan(classNode: ClassNode) {
         // 过滤所有没有 Aspect 注解的类
-        if (classNode.invisibleAnnotations?.find { it.desc == ANNOTATION_ASPECT_DESC } == null) return
+        classNode
+            .invisibleAnnotations
+            ?.find { it.desc == ANNOTATION_ASPECT_DESC }
+            ?: return
         classNode.methods.forEach {
             // 查找 Pointcut 注解的方法
             val pointCutAnnotation = it.invisibleAnnotations

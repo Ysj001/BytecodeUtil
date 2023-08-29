@@ -1,6 +1,5 @@
 package com.ysj.lib.bcu.modifier.aspect.processor
 
-import com.ysj.lib.bcu.modifier.aspect.AspectModifier
 import com.ysj.lib.bcu.modifier.aspect.PointcutBean
 import com.ysj.lib.bcu.modifier.aspect.api.JoinPoint
 import com.ysj.lib.bcu.modifier.aspect.api.POSITION_CALL
@@ -39,7 +38,10 @@ import java.util.regex.Pattern
  * @author Ysj
  * Create time: 2021/8/15
  */
-class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor(aspectModifier) {
+class MethodProxyProcessor(
+    private val allClassNode: Map<String, ClassNode>,
+    globalCache: MutableMap<String, Any?>,
+) : BaseMethodProcessor(globalCache) {
 
     private val logger = YLogger.getLogger(javaClass)
 
@@ -90,7 +92,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
     }
 
     private fun MethodInsnNode.addBCUKeep() {
-        val classNode = aspectModifier.allClassNode[owner] ?: return
+        val classNode = allClassNode[owner] ?: return
         synchronized(classNode.methods) {
             classNode.methods.find { it.name == name && it.desc == desc }?.addBCUKeep()
         }
@@ -270,7 +272,7 @@ class MethodProxyProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor
 
     private fun isAnnotationTarget(pointcutBean: PointcutBean, node: MethodInsnNode): Boolean {
         if (pointcutBean.targetType != PointcutBean.TARGET_ANNOTATION) return false
-        val classNode = aspectModifier.allClassNode[node.owner] ?: return false
+        val classNode = allClassNode[node.owner] ?: return false
         val predicate: (AnnotationNode) -> Boolean = { Pattern.matches(pointcutBean.target, it.desc) }
         return synchronized(classNode.methods) {
             classNode.methods.find {

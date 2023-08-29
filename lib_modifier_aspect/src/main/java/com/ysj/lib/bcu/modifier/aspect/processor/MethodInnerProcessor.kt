@@ -22,7 +22,7 @@ import org.objectweb.asm.tree.MethodNode
  * @author Ysj
  * Create time: 2021/8/15
  */
-class MethodInnerProcessor(aspectModifier: AspectModifier) : BaseMethodProcessor(aspectModifier) {
+class MethodInnerProcessor(globalCache: MutableMap<String, Any?>) : BaseMethodProcessor(globalCache) {
 
     private val logger = YLogger.getLogger(javaClass)
 

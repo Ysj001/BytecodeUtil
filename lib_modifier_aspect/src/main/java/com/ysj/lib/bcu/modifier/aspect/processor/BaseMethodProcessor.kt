@@ -1,13 +1,19 @@
 package com.ysj.lib.bcu.modifier.aspect.processor
 
 import com.ysj.lib.bcu.modifier.aspect.api.JoinPoint
-import com.ysj.lib.bytecodeutil.plugin.api.argsInsnList
-import com.ysj.lib.bytecodeutil.plugin.api.isStatic
-import com.ysj.lib.bcu.modifier.aspect.AspectModifier
 import com.ysj.lib.bcu.modifier.aspect.joinPointDesc
 import com.ysj.lib.bcu.modifier.aspect.joinPointInternalName
+import com.ysj.lib.bytecodeutil.plugin.api.argsInsnList
+import com.ysj.lib.bytecodeutil.plugin.api.isStatic
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.*
+import org.objectweb.asm.tree.AbstractInsnNode
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.InsnList
+import org.objectweb.asm.tree.InsnNode
+import org.objectweb.asm.tree.LdcInsnNode
+import org.objectweb.asm.tree.MethodInsnNode
+import org.objectweb.asm.tree.MethodNode
+import org.objectweb.asm.tree.VarInsnNode
 
 /**
  * 基础处理方法的处理器
@@ -15,11 +21,15 @@ import org.objectweb.asm.tree.*
  * @author Ysj
  * Create time: 2021/8/15
  */
-open class BaseMethodProcessor(val aspectModifier: AspectModifier) {
+open class BaseMethodProcessor(val globalCache: MutableMap<String, Any?>) {
 
     private val joinPointRemovedCache by lazy {
-        var cache = aspectModifier.cache["joinPointRemovedCache"]
-        if (cache == null) cache = HashSet<String>().also { aspectModifier.cache["joinPointRemovedCache"] = it }
+        var cache = globalCache["joinPointRemovedCache"]
+        if (cache !is HashSet<*>) {
+            cache = HashSet<String>()
+            globalCache["joinPointRemovedCache"] = cache
+        }
+        @Suppress("UNCHECKED_CAST")
         cache as HashSet<String>
     }
 
