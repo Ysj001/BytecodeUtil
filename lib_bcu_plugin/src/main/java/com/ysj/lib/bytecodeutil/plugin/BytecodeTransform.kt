@@ -71,13 +71,14 @@ abstract class BytecodeTransform : DefaultTask() {
                 LinkedBlockingQueue()
             )
             try {
-                val modifierManager = ModifierManager(project, executor)
+                val modifierManager = ModifierManager(executor)
                 for (index in modifiers.indices) {
                     val clazz = modifiers[index]
                     @Suppress("UNCHECKED_CAST")
                     modifierManager.addModifier(clazz as Class<out IModifier>)
                     logger.quiet(">>> apply modifier: ${clazz.name}")
                 }
+                modifierManager.initialize(project)
                 transform(Transform(bcuExtra, modifierManager, executor))
             } finally {
                 executor.shutdownNow()

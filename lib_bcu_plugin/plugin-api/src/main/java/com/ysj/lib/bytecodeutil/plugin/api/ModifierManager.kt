@@ -11,16 +11,25 @@ import java.util.concurrent.Executor
  * @author Ysj
  * Create time: 2021/3/6
  */
-class ModifierManager(
-    private val project: Project,
-    override val executor: Executor,
-) : IModifier {
+class ModifierManager(override val executor: Executor) : IModifier {
 
     override val allClassNode = HashMap<String, ClassNode>(400)
 
     private val modifiers = ArrayList<IModifier>()
 
     private val logger = YLogger.getLogger(javaClass)
+
+    override fun initialize(project: Project) {
+        super.initialize(project)
+        var startTime: Long
+        for (index in modifiers.indices) {
+            startTime = System.currentTimeMillis()
+            val modifier = modifiers[index]
+            modifier.initialize(project)
+            val time = System.currentTimeMillis() - startTime
+            logger.lifecycle(">>> ${modifier.javaClass.simpleName} initialize time：$time ms")
+        }
+    }
 
     override fun scan(classNode: ClassNode) {
         synchronized(allClassNode) {
@@ -50,6 +59,5 @@ class ModifierManager(
             .getConstructor(Executor::class.java, Map::class.java)
             .newInstance(executor, allClassNode)
         modifiers.add(element)
-        element.initialize(project)
     }
 }
