@@ -18,8 +18,6 @@ repositories {
 }
 
 dependencies {
-    implementation(gradleApi())
-    implementation(localGroovy())
     implementation(project("plugin-api"))
     compileOnly("com.android.tools.build:gradle-api:$ANDROID_GRADLE_VERSION")
 }

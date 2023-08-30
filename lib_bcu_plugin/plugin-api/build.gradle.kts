@@ -18,12 +18,10 @@ repositories {
 }
 
 dependencies {
-    implementation(gradleApi())
-    implementation(localGroovy())
-    compileOnly("com.android.tools.build:gradle-api:$ANDROID_GRADLE_VERSION")
+    api(gradleApi())
+    api(localGroovy())
     api("org.ow2.asm:asm:9.2")
     api("org.ow2.asm:asm-tree:9.2")
-    api("org.ow2.asm:asm-util:9.2")
 }
 
 mavenPublish()
