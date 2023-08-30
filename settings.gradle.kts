@@ -6,7 +6,7 @@ include(":lib_bcu_plugin:plugin-api")
 // aspect modifier
 include(":lib_modifier_aspect")
 include(":lib_modifier_aspect:aspect-api")
-// componentization modifier
+// component di modifier
 include(":lib_modifier_component_di")
 include(":lib_modifier_component_di:component-di-api")
 

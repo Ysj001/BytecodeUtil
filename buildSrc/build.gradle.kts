@@ -22,6 +22,7 @@ dependencies {
     val groupId = properties["bcu.groupId"] as String
     val bcuPluginVersion = properties["bcu.plugin.version"] as String
     val modifierAspectVersion = properties["bcu.modifier.aspect.version"] as String
+    val componentDIVersion = properties["bcu.modifier.component.di.version"] as String
     val hasPlugin = groupId
         .replace(".", File.separator)
         .let { File(reposDir, it) }
@@ -30,5 +31,6 @@ dependencies {
         implementation("$groupId:plugin:$bcuPluginVersion")
         implementation("$groupId:plugin-api:$bcuPluginVersion")
         implementation("$groupId:modifier-aspect:$modifierAspectVersion")
+        implementation("$groupId:modifier-component-di:$componentDIVersion")
     }
 }
