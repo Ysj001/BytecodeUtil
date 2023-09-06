@@ -21,4 +21,6 @@ private val hasPlugin = File(rootDir, "gradle.properties")
 if (hasPlugin) {
     // Demo
     include(":app")
+    include(":demo1")
+    include(":demo1:demo1-api")
 }
