@@ -6,26 +6,13 @@
     android:layout_height="match_parent"
     android:gravity="center"
     android:orientation="vertical"
-    tools:context=".MainActivity">
+    tools:context=".aspect.MainActivity">
 
     <Button
-        android:id="@+id/toAspectDemo"
+        android:id="@+id/btnClickInterval"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="go aspect demo"
-        android:textAllCaps="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/toComponentDiDemo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="go component-di demo"
-        android:textAllCaps="false"
+        android:text="测试点击间隔切面"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"

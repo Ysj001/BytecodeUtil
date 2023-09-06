@@ -14,7 +14,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SimpleAop">
+        android:theme="@style/Theme.BCU">
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -24,6 +24,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".aspect.MainActivity"
+            android:exported="false"
+            android:label="AspectModifier" />
+        <activity
+            android:name=".component.MainActivity"
+            android:exported="false"
+            android:label="ComponentDIModifier" />
     </application>
 
 </manifest>

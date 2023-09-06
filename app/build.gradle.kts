@@ -1,15 +1,14 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("bytecodeutil-plugin")
+    id("bcu-plugin")
 }
 
 bytecodeUtil {
     loggerLevel = 0
     modifiers = arrayOf(
-        Class.forName("com.ysj.lib.bcu.modifier.aspect.AspectModifier")
-        // 演示挂载 demo_plugin 插件中的修改器
-//        Class.forName("com.ysj.demo.plugin.TestModifier")
+        Class.forName("com.ysj.lib.bcu.modifier.aspect.AspectModifier"),
+        Class.forName("com.ysj.lib.bcu.modifier.component.di.ComponentDIModifier"),
     )
     notNeed = { entryName ->
 //        false
@@ -21,11 +20,14 @@ bytecodeUtil {
             || entryName.startsWith("org/junit/")
             || entryName.startsWith("org/hamcrest/")
             || entryName.startsWith("com/squareup/")
-            || entryName.startsWith("androidx/")
-            || entryName.startsWith("android/")
+            || entryName.startsWith("android")
             || entryName.startsWith("com/google/android/")
     }
 }
+
+// 演示：如果是发布模式，则编译时校验 component 有实现
+val isReleaseMode = true
+ext["component.di.checkImpl"] = isReleaseMode
 
 android {
     namespace = "com.ysj.demo"
@@ -82,7 +84,8 @@ dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 
     implementation(project(":lib_modifier_aspect:aspect-api"))
+    implementation(project(":lib_modifier_component_di:component-di-api"))
 
-//    implementation(project(":module_test"))
-//    implementation("io.github.ysj00:module_test:1.0.8")
+    runtimeOnly(project(":demo1"))
+    implementation(project(":demo1:demo1-api"))
 }

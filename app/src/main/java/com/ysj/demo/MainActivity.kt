@@ -1,40 +1,24 @@
 package com.ysj.demo
 
+import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import com.ysj.demo.databinding.ActivityMainBinding
+import com.ysj.demo.aspect.MainActivity as AspectActivity
+import com.ysj.demo.component.MainActivity as ComponentDiActivity
 
-class MainActivity : AppCompatActivity(), Runnable {
+class MainActivity : AppCompatActivity() {
 
-    companion object {
-        private const val TAG = "MainActivity"
-    }
-
-    @LogPositionReturn
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        run()
-        test2("1111")
-        findViewById<View>(R.id.test).setOnClickListener {
-            test3()
+        val vb = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(vb.root)
+        vb.toAspectDemo.setOnClickListener {
+            startActivity(Intent(this, AspectActivity::class.java))
         }
-    }
-
-    @LogPositionCall
-    private fun test2(str: String) {
-        Log.i(TAG, "test2: $str")
-    }
-
-    @IntervalTrigger(500)
-    private fun test3() {
-        Log.i(TAG, "test3")
-    }
-
-    @LogPositionCall
-    override fun run() {
-        Log.i(TAG, "run")
+        vb.toComponentDiDemo.setOnClickListener {
+            startActivity(Intent(this, ComponentDiActivity::class.java))
+        }
     }
 
 }
