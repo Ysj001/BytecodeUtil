@@ -6,6 +6,6 @@ package com.ysj.lib.bcu.modifier.component.di.api
  * @author Ysj
  * Create time: 2023/8/28
  */
-@Retention(AnnotationRetention.RUNTIME)
 @Target(AnnotationTarget.FIELD)
+@Retention(AnnotationRetention.BINARY)
 annotation class ComponentInject

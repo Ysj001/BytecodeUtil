@@ -125,7 +125,6 @@ class ComponentDIModifier(
         val staticInstanceField = targetClassNode?.findStaticInstanceField()
         for (constructor in constructors) {
             val list = InsnList()
-            constructor.instructions.insertBefore(constructor.firstNode, list)
             if (!isStatic) {
                 list.add(VarInsnNode(Opcodes.ALOAD, 0))
             }
@@ -165,7 +164,9 @@ class ComponentDIModifier(
                 target.fieldNode.name,
                 target.fieldNode.desc
             ))
+            constructor.instructions.insertBefore(constructor.firstNode, list)
         }
+        logger.info("Component inject: ${classNode.name}#${target.fieldNode.name}")
     }
 
     private fun findInjectTarget(classNode: ClassNode, fieldNode: FieldNode): InjectTarget {
