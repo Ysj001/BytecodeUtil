@@ -19,7 +19,7 @@ import java.util.jar.JarFile
 import javax.inject.Inject
 
 /**
- * 用于处理 [BytecodeTransform.notNeedOutput]。
+ * 用于处理 [TransformTask.notNeedOutput]。
  *
  * @author Ysj
  * Create time：2023/9/7

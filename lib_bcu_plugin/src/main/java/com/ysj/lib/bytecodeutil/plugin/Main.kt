@@ -25,7 +25,7 @@ class Main : Plugin<Project> {
                     ?: return@onVariants
                 val transformTask = project.tasks.register(
                     "${variant.name}BCUTransformTask",
-                    BytecodeTransform::class.java,
+                    TransformTask::class.java,
                 )
                 transformTask.configure {
                     val notNeedDir = File(bucRootDir, "${transformTask.name}NotNeed")
@@ -39,9 +39,9 @@ class Main : Plugin<Project> {
                     .use(transformTask)
                     .toTransform(
                         ScopedArtifact.CLASSES,
-                        BytecodeTransform::allJars,
-                        BytecodeTransform::allDirectories,
-                        BytecodeTransform::output
+                        TransformTask::allJars,
+                        TransformTask::allDirectories,
+                        TransformTask::output
                     )
                 val appendTask = project.tasks.register(
                     "${variant.name}BCUAppendTask",

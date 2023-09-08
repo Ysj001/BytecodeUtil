@@ -33,12 +33,12 @@ import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
 /**
- * 主 Task。
+ * 用于转换字节码的 Task。
  *
  * @author Ysj
  * Create time: 2023/8/22
  */
-abstract class BytecodeTransform : DefaultTask() {
+abstract class TransformTask : DefaultTask() {
 
     @get:InputFiles
     abstract val allJars: ListProperty<RegularFile>
