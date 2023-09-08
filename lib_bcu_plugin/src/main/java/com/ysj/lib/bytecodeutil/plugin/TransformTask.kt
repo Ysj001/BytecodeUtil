@@ -3,7 +3,6 @@ package com.ysj.lib.bytecodeutil.plugin
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.ModifierManager
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
-import com.ysj.lib.bytecodeutil.plugin.api.md5
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
@@ -103,26 +102,59 @@ abstract class TransformTask : DefaultTask() {
                 var startTime = System.currentTimeMillis()
 
                 // 扫描所有 class
-                val items = scanAll(transform, jos)
+                val allNotNeedFileSet = HashSet<File>(128)
+                val items = scanAll(transform, allNotNeedFileSet, jos)
                 logger.quiet(">>> bcu scan time: ${System.currentTimeMillis() - startTime} ms")
+
+                // 清理
+                val cleanNotNeedOutputError = AtomicReference<Throwable>()
+                val latch = CountDownLatch(1)
+                transform.executor.exec(latch, cleanNotNeedOutputError) {
+                    cleanNotNeedOutput(allNotNeedFileSet)
+                }
 
                 // 处理所有字节码
                 startTime = System.currentTimeMillis()
                 transform.modifierManager.modify()
                 logger.quiet(">>> bcu modify time: ${System.currentTimeMillis() - startTime} ms")
 
+                cleanNotNeedOutputError.get()?.also { throw it }
+
                 // 把所有字节码写到 output jar
                 startTime = System.currentTimeMillis()
                 process(items, transform.executor, jos)
                 logger.quiet(">>> bcu transform output time: ${System.currentTimeMillis() - startTime} ms")
+
+                // 等待清理完成
+                startTime = System.currentTimeMillis()
+                latch.await()
+                cleanNotNeedOutputError.get()?.also { throw it }
+                logger.quiet(">>> bcu clean not need output time: ${System.currentTimeMillis() - startTime} ms")
             }
         }
     }
 
-    private fun scanAll(transform: Transform, jos: JarOutputStream): LinkedList<ProcessItem> {
+    private fun cleanNotNeedOutput(allNotNeedFileSet: Set<File>) {
+        val notNeedOutputDir = notNeedOutput.get().asFile
+        notNeedOutputDir
+            .walkBottomUp()
+            .forEach {
+                if (it.isDirectory) {
+                    if (it.list().isNullOrEmpty()) {
+                        it.delete()
+                    }
+                } else if (it !in allNotNeedFileSet) {
+                    it.delete()
+                    logger.lifecycle(">>> incremental removed: ${it.name}")
+                }
+            }
+    }
+
+    private fun scanAll(transform: Transform, allNotNeedFileSet: MutableSet<File>, jos: JarOutputStream): LinkedList<ProcessItem> {
         val needs = LinkedList<ProcessItem>()
         val jars = allJars.get()
         val dirs = allDirectories.get()
+        val notNeedOutputDir = notNeedOutput.get().asFile
         val latch = CountDownLatch(jars.size + dirs.size)
         val throwable = AtomicReference<Throwable>()
         // 处理 jar
@@ -130,49 +162,37 @@ abstract class TransformTask : DefaultTask() {
             val file = rf.asFile
             transform.executor.exec(latch, throwable) {
                 JarFile(file).use { jf ->
-                    var isNotNeedJar = true
-                    val jarNotNeeds = LinkedList<JarEntry>()
                     jf.entries().iterator().forEach entry@{ entry ->
                         if (entry.isDirectory || entry.name.startsWith("META-INF")) {
                             return@entry
                         }
+                        val entryFile = File(notNeedOutputDir, entry.name)
                         if (entry.name.notNeedEntries(transform.extensions.notNeed)) {
-                            if (isNotNeedJar) {
-                                jarNotNeeds += JarEntry(entry.name)
-                            } else {
-                                val bytes = jf.getInputStream(entry).use { it.readBytes() }
-                                synchronized(jos) {
-                                    jos.putNextEntry(JarEntry(entry.name))
-                                    jos.write(bytes)
-                                    jos.closeEntry()
+                            if (!entryFile.isFile) {
+                                val parent = entryFile.parentFile
+                                if (!parent.isDirectory) {
+                                    parent.mkdirs()
+                                }
+                                entryFile.createNewFile()
+                                entryFile.outputStream().use { fos ->
+                                    jf.getInputStream(entry).use {
+                                        it.copyTo(fos)
+                                    }
                                 }
                             }
+                            synchronized(allNotNeedFileSet) {
+                                allNotNeedFileSet.add(entryFile)
+                            }
                         } else {
+                            if (entryFile.isFile) {
+                                entryFile.delete()
+                            }
                             logger.verbose("process jar file --> ${entry.name}")
                             val item = jf
                                 .getInputStream(entry)
                                 .use { it.visit(entry.name, transform.modifierManager) }
                             synchronized(needs) {
                                 needs.push(item)
-                            }
-                            isNotNeedJar = false
-                        }
-                    }
-                    val notNeedFile = File(notNeedOutput.get().asFile, "${file.md5()}.jar")
-                    if (isNotNeedJar) {
-                        if (!notNeedFile.isFile) {
-                            file.copyTo(notNeedFile)
-                        }
-                    } else {
-                        if (notNeedFile.isFile) {
-                            notNeedFile.delete()
-                        }
-                        jarNotNeeds.forEach { entry ->
-                            val bytes = jf.getInputStream(entry).use { it.readBytes() }
-                            synchronized(jos) {
-                                jos.putNextEntry(JarEntry(entry.name))
-                                jos.write(bytes)
-                                jos.closeEntry()
                             }
                         }
                     }
