@@ -47,7 +47,7 @@ abstract class TransformTask : DefaultTask() {
     abstract val allDirectories: ListProperty<Directory>
 
     @get:OutputFile
-    abstract val output: RegularFileProperty
+    abstract val transformOutput: RegularFileProperty
 
     @get:OutputDirectory
     abstract val notNeedOutput: DirectoryProperty
@@ -91,11 +91,13 @@ abstract class TransformTask : DefaultTask() {
             }
         }
         logger.quiet(">>> total process time: $useTime ms")
+        logger.quiet(">>> bcu transform output ${transformOutput.get().asFile}")
+        logger.quiet(">>> bcu not need output ${notNeedOutput.get().asFile}")
         logger.quiet("=================== transform end   ===================")
     }
 
     private fun transform(transform: Transform) {
-        val outputFile = output.get().asFile
+        val outputFile = transformOutput.get().asFile
         outputFile.outputStream().use { fos ->
             JarOutputStream(fos).use { jos ->
                 var startTime = System.currentTimeMillis()
@@ -112,10 +114,9 @@ abstract class TransformTask : DefaultTask() {
                 // 把所有字节码写到 output jar
                 startTime = System.currentTimeMillis()
                 process(items, transform.executor, jos)
-                logger.quiet(">>> bcu output time: ${System.currentTimeMillis() - startTime} ms")
+                logger.quiet(">>> bcu transform output time: ${System.currentTimeMillis() - startTime} ms")
             }
         }
-        logger.quiet(">>> bcu out put $outputFile")
     }
 
     private fun scanAll(transform: Transform, jos: JarOutputStream): LinkedList<ProcessItem> {

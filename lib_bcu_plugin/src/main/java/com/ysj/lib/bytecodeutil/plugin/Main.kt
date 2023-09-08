@@ -41,7 +41,7 @@ class Main : Plugin<Project> {
                         ScopedArtifact.CLASSES,
                         TransformTask::allJars,
                         TransformTask::allDirectories,
-                        TransformTask::output
+                        TransformTask::transformOutput
                     )
                 val appendTask = project.tasks.register(
                     "${variant.name}BCUAppendTask",
