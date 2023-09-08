@@ -3,12 +3,15 @@ package com.ysj.lib.bytecodeutil.plugin
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.ModifierManager
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
+import com.ysj.lib.bytecodeutil.plugin.api.md5
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.Directory
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFile
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.objectweb.asm.ClassReader
@@ -45,6 +48,9 @@ abstract class BytecodeTransform : DefaultTask() {
 
     @get:OutputFile
     abstract val output: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val notNeedOutput: DirectoryProperty
 
     private val logger = YLogger.getLogger(javaClass)
 
@@ -123,16 +129,22 @@ abstract class BytecodeTransform : DefaultTask() {
             val file = rf.asFile
             transform.executor.exec(latch, throwable) {
                 JarFile(file).use { jf ->
+                    var isNotNeedJar = true
+                    val jarNotNeeds = LinkedList<JarEntry>()
                     jf.entries().iterator().forEach entry@{ entry ->
                         if (entry.isDirectory || entry.name.startsWith("META-INF")) {
                             return@entry
                         }
                         if (entry.name.notNeedEntries(transform.extensions.notNeed)) {
-                            val bytes = jf.getInputStream(entry).use { it.readBytes() }
-                            synchronized(jos) {
-                                jos.putNextEntry(JarEntry(entry.name))
-                                jos.write(bytes)
-                                jos.closeEntry()
+                            if (isNotNeedJar) {
+                                jarNotNeeds += JarEntry(entry.name)
+                            } else {
+                                val bytes = jf.getInputStream(entry).use { it.readBytes() }
+                                synchronized(jos) {
+                                    jos.putNextEntry(JarEntry(entry.name))
+                                    jos.write(bytes)
+                                    jos.closeEntry()
+                                }
                             }
                         } else {
                             logger.verbose("process jar file --> ${entry.name}")
@@ -141,6 +153,25 @@ abstract class BytecodeTransform : DefaultTask() {
                                 .use { it.visit(entry.name, transform.modifierManager) }
                             synchronized(needs) {
                                 needs.push(item)
+                            }
+                            isNotNeedJar = false
+                        }
+                    }
+                    val notNeedFile = File(notNeedOutput.get().asFile, "${file.md5()}.jar")
+                    if (isNotNeedJar) {
+                        if (!notNeedFile.isFile) {
+                            file.copyTo(notNeedFile)
+                        }
+                    } else {
+                        if (notNeedFile.isFile) {
+                            notNeedFile.delete()
+                        }
+                        jarNotNeeds.forEach { entry ->
+                            val bytes = jf.getInputStream(entry).use { it.readBytes() }
+                            synchronized(jos) {
+                                jos.putNextEntry(JarEntry(entry.name))
+                                jos.write(bytes)
+                                jos.closeEntry()
                             }
                         }
                     }
