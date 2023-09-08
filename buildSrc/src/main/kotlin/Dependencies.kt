@@ -40,14 +40,3 @@ fun DependencyHandler.applyAndroidKtx(configName: String = "implementation") {
     add(configName, "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
     add(configName, "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycleVersion")
 }
-
-private const val NAVIGATION_VERSION = "2.6.0"
-
-fun DependencyHandler.applyAndroidNavigationPlugin() {
-    add("classpath", "androidx.navigation:navigation-safe-args-gradle-plugin:$NAVIGATION_VERSION")
-}
-
-fun DependencyHandler.applyAndroidNavigation(configName: String = "implementation") {
-    add(configName, "androidx.navigation:navigation-fragment-ktx:$NAVIGATION_VERSION")
-    add(configName, "androidx.navigation:navigation-ui-ktx:$NAVIGATION_VERSION")
-}
