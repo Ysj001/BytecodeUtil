@@ -155,12 +155,11 @@ abstract class TransformTask : DefaultTask() {
         val jars = allJars.get()
         val dirs = allDirectories.get()
         val notNeedOutputDir = notNeedOutput.get().asFile
-        val latch = CountDownLatch(jars.size + dirs.size)
-        val throwable = AtomicReference<Throwable>()
+        val worker = Worker(jars.size + dirs.size, transform.executor)
         // 处理 jar
         jars.forEach { rf ->
             val file = rf.asFile
-            transform.executor.exec(latch, throwable) {
+            worker.submit {
                 JarFile(file).use { jf ->
                     jf.entries().iterator().forEach entry@{ entry ->
                         if (entry.isDirectory || entry.name.startsWith("META-INF")) {
@@ -203,7 +202,7 @@ abstract class TransformTask : DefaultTask() {
         dirs.forEach { dir ->
             val rootDir = dir.asFile
             val rootUri = rootDir.toURI()
-            transform.executor.exec(latch, throwable) {
+            worker.submit {
                 rootDir.walk()
                     .filter { it.name != "META-INF" }
                     .filter { it.isFile }
@@ -231,17 +230,15 @@ abstract class TransformTask : DefaultTask() {
                     }
             }
         }
-        latch.await()
-        throwable.get()?.also { throw it }
+        worker.await()
         return needs
     }
 
     private fun process(items: LinkedList<ProcessItem>, executor: Executor, jos: JarOutputStream) {
-        val latch = CountDownLatch(items.size)
-        val throwable = AtomicReference<Throwable>()
+        val worker = Worker(items.size, executor)
         while (items.isNotEmpty()) {
             val item = items.pop()
-            executor.exec(latch, throwable) {
+            worker.submit {
                 val cw = ClassWriter(item.classReader, ClassWriter.COMPUTE_MAXS)
                 item.classNode.accept(cw)
                 val bytes = cw.toByteArray()
@@ -253,8 +250,7 @@ abstract class TransformTask : DefaultTask() {
                 }
             }
         }
-        latch.await()
-        throwable.get()?.also { throw it }
+        worker.await()
     }
 
     private fun InputStream.visit(entryName: String, modifierManager: ModifierManager) = use {
@@ -292,24 +288,6 @@ abstract class TransformTask : DefaultTask() {
             || fileName.endsWith("R\$drawable.class")
             || fileName.endsWith("R\$anim.class")
 
-    private fun Executor.exec(latch: CountDownLatch, t: AtomicReference<Throwable>, block: () -> Unit) {
-        t.get()?.also { throw it }
-        execute {
-            if (latch.count == 0L) {
-                return@execute
-            }
-            try {
-                block()
-                latch.countDown()
-            } catch (e: Throwable) {
-                t.set(e)
-                while (latch.count > 0) {
-                    latch.countDown()
-                }
-            }
-        }
-    }
-
     private class ProcessItem(
         val entryName: String,
         val classReader: ClassReader,
@@ -321,5 +299,36 @@ abstract class TransformTask : DefaultTask() {
         val modifierManager: ModifierManager,
         val executor: Executor,
     )
+
+    private class Worker(workCount: Int, val executor: Executor) {
+
+        private val latch = CountDownLatch(workCount)
+
+        private var error = AtomicReference<Throwable>()
+
+        fun submit(runnable: Runnable) {
+            error.get()?.also { throw it }
+            executor.execute {
+                if (latch.count == 0L) {
+                    return@execute
+                }
+                try {
+                    runnable.run()
+                    latch.countDown()
+                } catch (e: Throwable) {
+                    error.set(e)
+                    while (latch.count > 0) {
+                        latch.countDown()
+                    }
+                }
+            }
+        }
+
+        fun await() {
+            latch.await()
+            error.get()?.also { throw it }
+        }
+
+    }
 
 }
