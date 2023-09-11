@@ -171,7 +171,7 @@ abstract class TransformTask : DefaultTask() {
                         if (entry.isDirectory || entry.name.startsWith("META-INF")) {
                             return@entry
                         }
-                        val entryFile = File(notNeedOutputDir, entry.name)
+                        val entryFile = File(notNeedOutputDir, "${entry.name}-crc${entry.crc.toString(16)}")
                         if (entry.name.notNeedEntries(transform.extensions.notNeed)) {
                             if (!entryFile.isFile) {
                                 val parent = entryFile.parentFile

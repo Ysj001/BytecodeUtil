@@ -58,7 +58,10 @@ abstract class AppendTask : DefaultTask() {
             .asSequence()
             .filter { it.fileType == FileType.FILE }
             .forEach { change ->
-                val path = inputUri.relativize(change.file.toURI()).path
+                val path = inputUri
+                    .relativize(change.file.toURI())
+                    .path
+                    .substringBeforeLast("-crc")
                 when (change.changeType) {
                     ChangeType.REMOVED -> {
                         projectDexArchive.deleteRecursively()
