@@ -134,7 +134,7 @@ abstract class TransformTask : DefaultTask() {
         val list = notNeedOutputDir
             .list()
             ?.mapNotNull {
-                val dir = File(notNeedOutputDir, name)
+                val dir = File(notNeedOutputDir, it)
                 if (dir.isDirectory) dir else null
             }
             ?: return null
