@@ -106,19 +106,13 @@ abstract class TransformTask : DefaultTask() {
                 val items = scanAll(transform, allNotNeedFileSet, jos)
                 logger.quiet(">>> bcu scan time: ${System.currentTimeMillis() - startTime} ms")
 
-                // 清理
-                val cleanNotNeedOutputError = AtomicReference<Throwable>()
-                val latch = CountDownLatch(1)
-                transform.executor.exec(latch, cleanNotNeedOutputError) {
-                    cleanNotNeedOutput(allNotNeedFileSet)
-                }
+                // 开始清理
+                val cleanWorker = cleanNotNeedOutput(transform.executor, allNotNeedFileSet)
 
                 // 处理所有字节码
                 startTime = System.currentTimeMillis()
                 transform.modifierManager.modify()
                 logger.quiet(">>> bcu modify time: ${System.currentTimeMillis() - startTime} ms")
-
-                cleanNotNeedOutputError.get()?.also { throw it }
 
                 // 把所有字节码写到 output jar
                 startTime = System.currentTimeMillis()
@@ -126,28 +120,40 @@ abstract class TransformTask : DefaultTask() {
                 logger.quiet(">>> bcu transform output time: ${System.currentTimeMillis() - startTime} ms")
 
                 // 等待清理完成
-                startTime = System.currentTimeMillis()
-                latch.await()
-                cleanNotNeedOutputError.get()?.also { throw it }
-                logger.quiet(">>> bcu clean not need output time: ${System.currentTimeMillis() - startTime} ms")
+                if (cleanWorker != null) {
+                    startTime = System.currentTimeMillis()
+                    cleanWorker.await()
+                    logger.quiet(">>> bcu clean not need output time: ${System.currentTimeMillis() - startTime} ms")
+                }
             }
         }
     }
 
-    private fun cleanNotNeedOutput(allNotNeedFileSet: Set<File>) {
+    private fun cleanNotNeedOutput(executor: Executor, allNotNeedFileSet: Set<File>): Worker? {
         val notNeedOutputDir = notNeedOutput.get().asFile
-        notNeedOutputDir
-            .walkBottomUp()
-            .forEach {
-                if (it.isDirectory) {
-                    if (it.list().isNullOrEmpty()) {
+        val list = notNeedOutputDir
+            .list()
+            ?.mapNotNull {
+                val dir = File(notNeedOutputDir, name)
+                if (dir.isDirectory) dir else null
+            }
+            ?: return null
+        val worker = Worker(list.size, executor)
+        list.forEach { dir ->
+            worker.submit {
+                dir.walkBottomUp().forEach {
+                    if (it.isDirectory) {
+                        if (it.list().isNullOrEmpty()) {
+                            it.delete()
+                        }
+                    } else if (it !in allNotNeedFileSet) {
                         it.delete()
+                        logger.lifecycle(">>> incremental removed: ${it.name}")
                     }
-                } else if (it !in allNotNeedFileSet) {
-                    it.delete()
-                    logger.lifecycle(">>> incremental removed: ${it.name}")
                 }
             }
+        }
+        return worker
     }
 
     private fun scanAll(transform: Transform, allNotNeedFileSet: MutableSet<File>, jos: JarOutputStream): LinkedList<ProcessItem> {
