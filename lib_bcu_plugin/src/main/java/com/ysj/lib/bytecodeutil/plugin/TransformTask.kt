@@ -172,7 +172,17 @@ abstract class TransformTask : DefaultTask() {
                             return@entry
                         }
                         val entryFile = File(notNeedOutputDir, "${entry.name}-crc${entry.crc.toString(16)}")
-                        if (entry.name.notNeedEntries(transform.extensions.notNeed)) {
+                        if (entry.name.endsWith("/R.class")) {
+                            if (entryFile.isFile) {
+                                entryFile.delete()
+                            }
+                            val bytes = jf.getInputStream(entry).use { it.readBytes() }
+                            synchronized(jos) {
+                                jos.putNextEntry(entry)
+                                jos.write(bytes)
+                                jos.closeEntry()
+                            }
+                        } else if (entry.name.notNeedEntries(transform.extensions.notNeed)) {
                             if (!entryFile.isFile) {
                                 val parent = entryFile.parentFile
                                 if (!parent.isDirectory) {
@@ -269,13 +279,13 @@ abstract class TransformTask : DefaultTask() {
 
     private fun String.notNeedEntries(notNeed: ((entryName: String) -> Boolean)): Boolean =
         endsWith(".class").not()
-            || checkAndroidRFile(this)
+            || isAndroidRFile(this)
             || startsWith("com/ysj/lib/bytecodeutil/")
             || notNeed.invoke(this)
 
-    private fun checkAndroidRFile(fileName: String) =
-        fileName.endsWith("R.class")
-            || fileName.endsWith("R\$raw.class")
+    private fun isAndroidRFile(fileName: String) =
+//        fileName.endsWith("/R.class") 由于混淆后可能生成 r.class 会冲突，因此单独判断这个
+        fileName.endsWith("R\$raw.class")
             || fileName.endsWith("R\$styleable.class")
             || fileName.endsWith("R\$layout.class")
             || fileName.endsWith("R\$xml.class")
