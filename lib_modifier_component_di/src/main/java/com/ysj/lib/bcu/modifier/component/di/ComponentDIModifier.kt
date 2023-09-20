@@ -139,12 +139,11 @@ class ComponentDIModifier(
                         false
                     ))
                 }
-                staticInstanceField != null -> list.add(MethodInsnNode(
+                staticInstanceField != null -> list.add(FieldInsnNode(
                     Opcodes.GETSTATIC,
                     targetClassNode.name,
                     staticInstanceField.name,
                     staticInstanceField.desc,
-                    false
                 ))
                 else -> {
                     list.add(TypeInsnNode(Opcodes.NEW, targetClassNode.name))
