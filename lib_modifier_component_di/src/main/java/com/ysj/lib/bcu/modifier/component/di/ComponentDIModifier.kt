@@ -53,6 +53,7 @@ class ComponentDIModifier(
      */
     private val componentInjectInfoMap = HashMap<ClassNode, LinkedList<FieldNode>>()
 
+    // key: field desc
     private val findInjectTargetCache = HashMap<String, InjectTarget>()
 
     private var checkImpl = true
@@ -102,13 +103,13 @@ class ComponentDIModifier(
         for (entry in componentInjectInfoMap) {
             val (classNode, fieldNodes) = entry
             for (index in fieldNodes.indices) {
-                inject(classNode, findInjectTarget(classNode, fieldNodes[index]))
+                inject(classNode, fieldNodes[index], findInjectTarget(classNode, fieldNodes[index]))
             }
         }
     }
 
-    private fun inject(classNode: ClassNode, target: InjectTarget) {
-        val isStatic = target.fieldNode.isStatic
+    private fun inject(classNode: ClassNode, fieldNode: FieldNode, target: InjectTarget) {
+        val isStatic = fieldNode.isStatic
         val constructors = if (isStatic) {
             listOf(classNode.getStaticConstructor())
         } else {
@@ -160,12 +161,12 @@ class ComponentDIModifier(
             list.add(FieldInsnNode(
                 if (isStatic) Opcodes.PUTSTATIC else Opcodes.PUTFIELD,
                 classNode.name,
-                target.fieldNode.name,
-                target.fieldNode.desc
+                fieldNode.name,
+                fieldNode.desc
             ))
             constructor.instructions.insertBefore(constructor.firstNode, list)
         }
-        logger.info("Component inject: ${classNode.name}#${target.fieldNode.name}")
+        logger.info("Component inject: ${classNode.name}#${fieldNode.name}")
     }
 
     private fun findInjectTarget(classNode: ClassNode, fieldNode: FieldNode): InjectTarget {
@@ -196,7 +197,6 @@ class ComponentDIModifier(
             resultImplNode = componentImplNode
         }
         target = InjectTarget(
-            fieldNode = fieldNode,
             classNode = resultImplNode,
             componentInfo = componentInfo,
         )
@@ -270,10 +270,6 @@ class ComponentDIModifier(
     }
 
     private class InjectTarget(
-        /**
-         * 要注入的 field。
-         */
-        val fieldNode: FieldNode,
         /**
          * field 需要的实例 class。
          */
