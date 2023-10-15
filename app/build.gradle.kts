@@ -1,3 +1,8 @@
+import com.ysj.lib.bytecodeutil.plugin.api.IModifier
+import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
+import org.objectweb.asm.tree.ClassNode
+import java.util.concurrent.Executor
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,10 +10,10 @@ plugins {
 }
 
 bytecodeUtil {
-    loggerLevel = 0
+    loggerLevel = 2
     modifiers = arrayOf(
-//        Class.forName("com.ysj.lib.bcu.modifier.aspect.AspectModifier"),
-//        Class.forName("com.ysj.lib.bcu.modifier.component.di.ComponentDIModifier"),
+        // 将 CustomModifier 添加到 bcu 中
+        CustomModifier::class.java,
     )
     notNeed = { entryName ->
 //        false
@@ -26,9 +31,8 @@ bytecodeUtil {
     }
 }
 
-// 演示：如果是发布模式，则编译时校验 component 有实现
-val isReleaseMode = true
-ext["component.di.checkImpl"] = isReleaseMode
+// 演示给 CustomModifier 传递自定义参数
+ext["modifier.custom"] = "这是自定义的参数"
 
 android {
     namespace = "com.ysj.demo"
@@ -85,4 +89,34 @@ dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
 //    implementation("com.squareup.okhttp3:okhttp:4.9.2")
 
+}
+
+/**
+ * 演示自定义一个 [IModifier] 实现。
+ */
+class CustomModifier(
+    override val executor: Executor,
+    override val allClassNode: Map<String, ClassNode>,
+) : IModifier {
+
+    private val logger = YLogger.getLogger(javaClass)
+    override fun initialize(project: Project) {
+        super.initialize(project)
+        // 初始化阶段，可以通过 project 拿到所需的配置参数
+        logger.lifecycle("step1：initialize")
+        // 演示获取自定义参数
+        logger.lifecycle(project.properties["modifier.custom"].toString())
+    }
+
+    override fun scan(classNode: ClassNode) {
+        // 扫描阶段，该阶段可以获取到所有过滤后需要处理的 class
+        logger.lifecycle("step2：scan -->$classNode")
+        // 你可以在这里过收集需要处理的 class
+        // 注意：该方法非多线程安全，内部处理记得按需加锁
+    }
+
+    override fun modify() {
+        // 处理阶段，该阶段是最后一个阶段，用于修改 scan 阶段收集的 class
+        logger.lifecycle("step3：modify")
+    }
 }

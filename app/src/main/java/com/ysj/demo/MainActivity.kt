@@ -10,10 +10,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val vb = ActivityMainBinding.inflate(layoutInflater)
         setContentView(vb.root)
-        vb.toAspectDemo.setOnClickListener {
-        }
-        vb.toComponentDiDemo.setOnClickListener {
-        }
     }
 
 }
