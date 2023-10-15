@@ -24,14 +24,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".aspect.MainActivity"
-            android:exported="false"
-            android:label="AspectModifier" />
-        <activity
-            android:name=".component.MainActivity"
-            android:exported="false"
-            android:label="ComponentDIModifier" />
     </application>
 
 </manifest>
