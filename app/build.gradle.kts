@@ -7,8 +7,8 @@ plugins {
 bytecodeUtil {
     loggerLevel = 0
     modifiers = arrayOf(
-        Class.forName("com.ysj.lib.bcu.modifier.aspect.AspectModifier"),
-        Class.forName("com.ysj.lib.bcu.modifier.component.di.ComponentDIModifier"),
+//        Class.forName("com.ysj.lib.bcu.modifier.aspect.AspectModifier"),
+//        Class.forName("com.ysj.lib.bcu.modifier.component.di.ComponentDIModifier"),
     )
     notNeed = { entryName ->
 //        false
@@ -22,6 +22,7 @@ bytecodeUtil {
             || entryName.startsWith("com/squareup/")
             || entryName.startsWith("android")
             || entryName.startsWith("com/google/android/")
+            || entryName.startsWith("okhttp")
     }
 }
 
@@ -82,10 +83,6 @@ android {
 
 dependencies {
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
+//    implementation("com.squareup.okhttp3:okhttp:4.9.2")
 
-    implementation(project(":lib_modifier_aspect:aspect-api"))
-    implementation(project(":lib_modifier_component_di:component-di-api"))
-
-    runtimeOnly(project(":demo1"))
-    implementation(project(":demo1:demo1-api"))
 }

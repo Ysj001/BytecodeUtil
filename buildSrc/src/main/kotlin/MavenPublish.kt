@@ -5,6 +5,7 @@ import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.authentication.http.BasicAuthentication
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.get
@@ -56,17 +57,6 @@ fun Project.mavenPublish(groupId: String? = null, version: String? = null) {
             name = "local"
             url = MAVEN_LOCAL
         }
-//        maven {
-//            name = "mavenCentral"
-//            setUrl(libVersion.run {
-//                if (endsWith("SNAPSHOT")) MAVEN_CENTRAL_SNAPSHOTS
-//                else MAVEN_CENTRAL_RELEASE
-//            })
-//            credentials {
-//                username = property("mavenCentralUserName").toString()
-//                password = property("mavenCentralPassword").toString()
-//            }
-//        }
     }
 }
 
