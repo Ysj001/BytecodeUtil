@@ -56,14 +56,13 @@
 
 #### 使用
 
-1. 配置根目录下的 `build.gradle` 来使用解压中的 jar 包
+1. 项目已经发到 `jitpack.io` 仓库，依赖如下
 
    ```groovy
    // Top-level build file
    buildscript {
        repositories {
-       	// 使用仓库中的 jar
-           maven { url repos }
+           maven { url 'https://jitpack.io' }
        }
        dependencies {
            classpath "com.github.Ysj001.BytecodeUtil:plugin:<lastest-version>"
@@ -72,13 +71,12 @@
    
    subprojects {
        repositories {
-       	// 使用仓库中的 jar
-           maven { url repos }
+           maven { url 'https://jitpack.io' }
        	... ...
        }
    }
    ```
-
+   
 2. 在 `android application` 模块中使用并配置插件
 
    ```groovy
@@ -103,7 +101,7 @@
    }
    ```
 
-3. 混淆配置
+3. `BCU` 会将需要保留的目标加上 `BCUKeep` 注解，因此只需如下配置即可
 
    ```tex
    -keepclassmembers class * {
