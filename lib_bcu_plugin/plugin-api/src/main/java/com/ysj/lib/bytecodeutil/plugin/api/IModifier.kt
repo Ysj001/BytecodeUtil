@@ -1,5 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin.api
 
+import com.android.build.api.variant.Variant
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.Executor
@@ -27,7 +28,7 @@ interface IModifier {
     /**
      * 初始化
      */
-    fun initialize(project: Project) = Unit
+    fun initialize(project: Project, variant: Variant) = Unit
 
     /**
      * 每扫到一个需要修改的类就会回调一次。

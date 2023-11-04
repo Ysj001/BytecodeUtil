@@ -9,13 +9,15 @@ plugins {
     id("bcu-plugin")
 }
 
-bytecodeUtil {
-    loggerLevel = 2
-    modifiers = arrayOf(
-        // 将 CustomModifier 添加到 bcu 中
-        CustomModifier::class.java,
-    )
-    notNeed = { entryName ->
+bcu {
+    config { variant ->
+        loggerLevel = 2
+        modifiers = arrayOf(
+            // 将 CustomModifier 添加到 bcu 中
+            CustomModifier::class.java,
+        )
+    }
+    filterNot { variant, entryName ->
 //        false
         entryName.startsWith("kotlin/")
             || entryName.startsWith("kotlinx/")
@@ -100,17 +102,17 @@ class CustomModifier(
 ) : IModifier {
 
     private val logger = YLogger.getLogger(javaClass)
-    override fun initialize(project: Project) {
-        super.initialize(project)
+    override fun initialize(project: Project, variant: com.android.build.api.variant.Variant) {
+        super.initialize(project, variant)
         // 初始化阶段，可以通过 project 拿到所需的配置参数
-        logger.lifecycle("step1：initialize")
+        logger.lifecycle("step1：initialize. variant=${variant.name}")
         // 演示获取自定义参数
         logger.lifecycle(project.properties["modifier.custom"].toString())
     }
 
     override fun scan(classNode: ClassNode) {
         // 扫描阶段，该阶段可以获取到所有过滤后需要处理的 class
-        logger.lifecycle("step2：scan -->$classNode")
+        logger.lifecycle("step2：scan --> ${classNode.name}")
         // 你可以在这里过收集需要处理的 class
         // 注意：该方法非多线程安全，内部处理记得按需加锁
     }

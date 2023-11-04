@@ -1,5 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin
 
+import com.android.build.api.variant.Variant
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import org.gradle.api.DefaultTask
@@ -8,7 +9,9 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFile
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
@@ -50,19 +53,29 @@ abstract class TransformTask : DefaultTask() {
     @get:OutputDirectory
     abstract val notNeedOutput: DirectoryProperty
 
+    @get:Internal
+    abstract val variant: Property<Variant>
+
     private val logger = YLogger.getLogger(javaClass)
 
     @TaskAction
     fun taskAction() {
-        val bcuExtra = project.extensions.getByType(BytecodeUtilExtensions::class.java)
-        YLogger.LOGGER_LEVEL = bcuExtra.loggerLevel
-        val modifiers = bcuExtra.modifiers
+        val variant = variant.get()
+        val bcuExtra = project
+            .extensions
+            .getByType(BCUExtension::class.java)
+            as BCUExtensionImpl
+        val config = Config()
+        bcuExtra.config(config, variant)
+        YLogger.LOGGER_LEVEL = config.loggerLevel
+        val modifiers = config.modifiers
         if (modifiers == null) {
             logger.quiet("bcu not found modifier")
             return
         }
         logger.quiet("=================== transform start ===================")
         logger.quiet(">>> gradle version: ${project.gradle.gradleVersion}")
+        logger.quiet(">>> variant: ${variant.name}")
         logger.quiet(">>> loggerLevel: ${YLogger.LOGGER_LEVEL}")
         // 添加所有 modifier
         val useTime = measureTimeMillis {
@@ -82,8 +95,8 @@ abstract class TransformTask : DefaultTask() {
                     modifierManager.addModifier(clazz as Class<out IModifier>)
                     logger.quiet(">>> apply modifier: ${clazz.name}")
                 }
-                modifierManager.initialize(project)
-                transform(Transform(bcuExtra, modifierManager, executor))
+                modifierManager.initialize(project, variant)
+                transform(Transform(variant, bcuExtra, modifierManager, executor))
             } finally {
                 executor.shutdownNow()
             }
@@ -181,7 +194,7 @@ abstract class TransformTask : DefaultTask() {
                                 jos.write(bytes)
                                 jos.closeEntry()
                             }
-                        } else if (entry.name.notNeedEntries(transform.extensions.notNeed)) {
+                        } else if (transform.filterNot(entry.name)) {
                             if (!entryFile.isFile) {
                                 val parent = entryFile.parentFile
                                 if (!parent.isDirectory) {
@@ -225,7 +238,7 @@ abstract class TransformTask : DefaultTask() {
                         val entryName = rootUri
                             .relativize(file.toURI()).path
                             .replace(File.separatorChar, '/')
-                        if (entryName.notNeedEntries(transform.extensions.notNeed)) {
+                        if (transform.filterNot(entryName)) {
                             val entry = JarEntry(entryName)
                             val bytes = file.readBytes()
                             synchronized(jos) {
@@ -276,33 +289,6 @@ abstract class TransformTask : DefaultTask() {
         ProcessItem(entryName, cr, cv)
     }
 
-    private fun String.notNeedEntries(notNeed: ((entryName: String) -> Boolean)): Boolean =
-        endsWith(".class").not()
-            || isAndroidRFile(this)
-            || startsWith("com/ysj/lib/bytecodeutil/")
-            || notNeed.invoke(this)
-
-    private fun isAndroidRFile(fileName: String) =
-//        fileName.endsWith("/R.class") 由于混淆后可能生成 r.class 会冲突，因此单独判断这个
-        fileName.endsWith("R\$raw.class")
-            || fileName.endsWith("R\$styleable.class")
-            || fileName.endsWith("R\$layout.class")
-            || fileName.endsWith("R\$xml.class")
-            || fileName.endsWith("R\$attr.class")
-            || fileName.endsWith("R\$color.class")
-            || fileName.endsWith("R\$bool.class")
-            || fileName.endsWith("R\$mipmap.class")
-            || fileName.endsWith("R\$dimen.class")
-            || fileName.endsWith("R\$interpolator.class")
-            || fileName.endsWith("R\$plurals.class")
-            || fileName.endsWith("R\$style.class")
-            || fileName.endsWith("R\$integer.class")
-            || fileName.endsWith("R\$id.class")
-            || fileName.endsWith("R\$animator.class")
-            || fileName.endsWith("R\$string.class")
-            || fileName.endsWith("R\$drawable.class")
-            || fileName.endsWith("R\$anim.class")
-
     private class ProcessItem(
         val entryName: String,
         val classReader: ClassReader,
@@ -310,10 +296,21 @@ abstract class TransformTask : DefaultTask() {
     )
 
     private class Transform(
-        val extensions: BytecodeUtilExtensions,
+        val variant: Variant,
+        val extensions: BCUExtensionImpl,
         val modifierManager: ModifierManager,
         val executor: Executor,
-    )
+    ) {
+
+        private val androidRFiletRegex = Regex(".*R\\\$.*.class")
+
+        fun filterNot(entry: String): Boolean {
+            return entry.endsWith(".class").not()
+                || androidRFiletRegex.matches(entry)
+                || extensions.filterNot(variant, entry)
+        }
+
+    }
 
     private class Worker(workCount: Int, val executor: Executor) {
 

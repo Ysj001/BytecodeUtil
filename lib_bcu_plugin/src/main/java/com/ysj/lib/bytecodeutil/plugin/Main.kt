@@ -16,12 +16,16 @@ class Main : Plugin<Project> {
 
     override fun apply(project: Project) {
         val bucRootDir = File(project.buildDir, "bcu")
-        project.extensions.create(BytecodeUtilExtensions.NAME, BytecodeUtilExtensions::class.java)
+        project.extensions.create(
+            BCUExtension::class.java,
+            EXTENSION_NAME,
+            BCUExtensionImpl::class.java,
+        )
         project.extensions.configure(AndroidComponentsExtension::class.java) { appExt ->
             appExt.onVariants { variant ->
                 project
                     .extensions
-                    .findByType(BytecodeUtilExtensions::class.java)
+                    .findByType(BCUExtension::class.java)
                     ?: return@onVariants
                 val transformTask = project.tasks.register(
                     "${variant.name}BCUTransformTask",
@@ -33,6 +37,7 @@ class Main : Plugin<Project> {
                         notNeedDir.mkdirs()
                     }
                     it.notNeedOutput.set(notNeedDir)
+                    it.variant.set(variant)
                 }
                 variant.artifacts
                     .forScope(ScopedArtifacts.Scope.ALL)

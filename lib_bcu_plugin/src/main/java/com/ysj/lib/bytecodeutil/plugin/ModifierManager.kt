@@ -1,5 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin
 
+import com.android.build.api.variant.Variant
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import org.gradle.api.Project
@@ -20,13 +21,13 @@ class ModifierManager(override val executor: Executor) : IModifier {
 
     private val logger = YLogger.getLogger(javaClass)
 
-    override fun initialize(project: Project) {
-        super.initialize(project)
+    override fun initialize(project: Project, variant: Variant) {
+        super.initialize(project, variant)
         var startTime: Long
         for (index in modifiers.indices) {
             startTime = System.currentTimeMillis()
             val modifier = modifiers[index]
-            modifier.initialize(project)
+            modifier.initialize(project, variant)
             val time = System.currentTimeMillis() - startTime
             logger.lifecycle(">>> ${modifier.javaClass.simpleName} initialize time：$time ms")
         }
