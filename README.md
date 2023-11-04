@@ -12,6 +12,7 @@
 
 - [x] v2 版已经支持 `AGP 7.4+`  |  ~~（v1 老版本是基于 `AGP4` 的 `Transform` 接口）~~
 - [x] 支持过滤和增量，并优化 `Transform` 流程，合理配置过滤时能极大幅度缩减编译时间。
+- [x] 支持根据 `variant` 进行不同的配置和处理。
 - [x] 插件内部多线程并行 IO 处理，提升编译速度。
 - [x] 基于 `asm-tree`  实现的接口更加易于修改字节码。
 - [x] 插件平台化，支持挂载多个字节码修改器，且使用多个修改器也只会有一次 IO 产生。
@@ -56,46 +57,53 @@
 
 #### 使用
 
-1. 项目已经发到 `jitpack.io` 仓库，依赖如下
+1. 项目已经发到 `jitpack.io` 仓库，在项目根 `build.gradle.kts` 中配置如下
 
-   ```groovy
+   ```kotlin
    // Top-level build file
    buildscript {
        repositories {
-           maven { url 'https://jitpack.io' }
+           maven { setUrl("https://jitpack.io") }
        }
+       
        dependencies {
-           classpath "com.github.Ysj001.BytecodeUtil:plugin:<lastest-version>"
+           // BCU 插件依赖
+           classpath("com.github.Ysj001.BytecodeUtil:plugin:<lastest-version>")
        }
    }
    
    subprojects {
        repositories {
            maven { url 'https://jitpack.io' }
-       	... ...
        }
    }
    ```
    
-2. 在 `android application` 模块中使用并配置插件
+2. 在 `app` 模块的 `build.gradle.kts` 中的配置如下
 
-   ```groovy
-   apply plugin: 'com.android.application'
-   // 使用 bcu 插件
-   apply plugin: 'bcu-plugin'
+   ```kotlin
+   plugins {
+       id("com.android.application")
+       id("org.jetbrains.kotlin.android")
+       // 添加 bcu 插件
+       id("bcu-plugin")
+   }
    
    // 插件扩展
-   bytecodeUtil {
-       // 设置插件日志级别 （0 ~ 5）
-       loggerLevel = 1
-       // 挂载你所需的修改器，可以挂载多个，插件内部按顺序执行
-       modifiers = [
-           // 你要挂载的修改器的 class
-           Class.forName("xxxxx")
-   	]
-       // 不需要处理的 class 文件过滤器，合理配置可提大幅升编译速度。
-       notNeed = { entryName ->
+   bcu {
+       config { variant ->
+       	// 设置插件日志级别 （0 ~ 5）
+           loggerLevel = 2
+       	// 挂载你所需的修改器，可以挂载多个，插件内部按顺序执行
+           modifiers = arrayOf(
+               // 将 CustomModifier 添加到 bcu 中
+               CustomModifier::class.java,
+           )
+       }
+       // 不需要处理的 class 文件过滤器。
+       filterNot { variant, entryName ->
            // 这里传 false 表示不过滤
+           // 请按需配置过滤，合理配置可提大幅升编译速度
            false
        }
    }
@@ -206,6 +214,7 @@ log 对应的具体含义：
 | log key                         | 对应含义                                    |
 | ------------------------------- | ------------------------------------------- |
 | >>> loggerLevel                 | 当前 BCU 的日志等级（0~5）                  |
+| >>> variant                     | 当前变体名称                                |
 | >>> apply modifier              | 添加进 BCU 的 Modifier                      |
 | >>> xxxModifier initialize time | xxxModifier 在 initialize 阶段的耗时        |
 | >>> bcu scan time               | BCU 在 scan 阶段的总耗时                    |
