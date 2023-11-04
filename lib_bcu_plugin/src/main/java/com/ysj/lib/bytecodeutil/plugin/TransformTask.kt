@@ -1,7 +1,6 @@
 package com.ysj.lib.bytecodeutil.plugin
 
 import com.ysj.lib.bytecodeutil.plugin.api.IModifier
-import com.ysj.lib.bytecodeutil.plugin.api.ModifierManager
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.Directory

@@ -1,5 +1,6 @@
-package com.ysj.lib.bytecodeutil.plugin.api
+package com.ysj.lib.bytecodeutil.plugin
 
+import com.ysj.lib.bytecodeutil.plugin.api.IModifier
 import com.ysj.lib.bytecodeutil.plugin.api.logger.YLogger
 import org.gradle.api.Project
 import org.objectweb.asm.tree.ClassNode
