@@ -180,7 +180,7 @@ abstract class TransformTask : DefaultTask() {
             worker.submit {
                 JarFile(file).use { jf ->
                     jf.entries().iterator().forEach entry@{ entry ->
-                        if (entry.isDirectory || entry.name.startsWith("META-INF")) {
+                        if (entry.isDirectory || entry.name.startsWith("META-INF") || entry.name == "module-info.class") {
                             return@entry
                         }
                         val entryFile = File(notNeedOutputDir, "${entry.name}-crc${entry.crc.toString(16)}")
@@ -233,6 +233,7 @@ abstract class TransformTask : DefaultTask() {
             worker.submit {
                 rootDir.walk()
                     .filter { it.name != "META-INF" }
+                    .filter { it.name != "module-info.class" }
                     .filter { it.isFile }
                     .forEach { file ->
                         val entryName = rootUri
