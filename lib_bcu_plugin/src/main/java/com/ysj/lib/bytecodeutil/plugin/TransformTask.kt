@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import java.util.jar.JarOutputStream
+import java.util.zip.Deflater
 import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
@@ -111,6 +112,9 @@ abstract class TransformTask : DefaultTask() {
         val outputFile = transformOutput.get().asFile
         outputFile.outputStream().use { fos ->
             JarOutputStream(fos).use { jos ->
+                // 设置压缩等级（0 表示不压缩，速度最快）
+                jos.setLevel(Deflater.NO_COMPRESSION)
+
                 var startTime = System.currentTimeMillis()
 
                 // 扫描所有 class
