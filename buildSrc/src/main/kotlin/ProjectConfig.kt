@@ -16,10 +16,10 @@ import java.util.concurrent.TimeUnit
  */
 
 /** kotlin 依赖版本 */
-const val KOTLIN_VERSION = "1.8.20"
+const val KOTLIN_VERSION = "1.9.0"
 
 /** com.android.tools.build:gradle version */
-const val ANDROID_GRADLE_VERSION = "8.1.1"
+const val ANDROID_GRADLE_VERSION = "8.4.1"
 
 /**
  * 工程统一配置。

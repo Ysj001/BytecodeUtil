@@ -6,7 +6,9 @@ private val reposDir = File(rootDir, "../repos")
 
 repositories {
     maven { url = reposDir.toURI() }
-    maven { setUrl("https://maven.aliyun.com/nexus/content/groups/public/") }
+    maven { setUrl("https://maven.aliyun.com/repository/gradle-plugin") }
+    maven { setUrl("https://maven.aliyun.com/repository/central") }
+    maven { setUrl("https://maven.aliyun.com/repository/google") }
     google()
     gradlePluginPortal()
     mavenCentral()
@@ -14,7 +16,7 @@ repositories {
 
 dependencies {
     implementation(gradleKotlinDsl())
-    implementation("com.android.tools.build:gradle-api:8.1.1")
+    implementation("com.android.tools.build:gradle-api:8.4.1")
     val properties = org.jetbrains.kotlin
         .konan.properties
         .loadProperties(File(rootDir, "../gradle.properties").absolutePath)
