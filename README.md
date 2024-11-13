@@ -148,10 +148,10 @@
    ) : IModifier {
    
        private val logger = YLogger.getLogger(javaClass)
-       override fun initialize(project: Project) {
+       override fun initialize(project: Project, variant: com.android.build.api.variant.Variant) {
            super.initialize(project)
            // 初始化阶段，可以通过 project 拿到所需的配置参数
-           logger.lifecycle("step1：initialize")
+           logger.lifecycle("step1：initialize. variant=${variant.name}")
            // 演示获取自定义参数
            logger.lifecycle(project.properties["modifier.custom"].toString())
        }
