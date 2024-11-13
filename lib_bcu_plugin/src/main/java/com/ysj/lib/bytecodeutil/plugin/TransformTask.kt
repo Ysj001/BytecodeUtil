@@ -147,17 +147,19 @@ abstract class TransformTask : DefaultTask() {
 
     private fun cleanNotNeedOutput(executor: Executor, allNotNeedFileSet: Set<File>): Worker? {
         val notNeedOutputDir = notNeedOutput.get().asFile
-        val list = notNeedOutputDir
-            .list()
-            ?.mapNotNull {
-                val dir = File(notNeedOutputDir, it)
-                if (dir.isDirectory) dir else null
+        val list = notNeedOutputDir.listFiles() ?: return null
+        val workCounter: (File) -> Int = { if (it.isDirectory) 1 else 0 }
+        val worker = Worker(list.sumOf(workCounter), executor)
+        list.forEach { file ->
+            if (file.isFile) {
+                if (file !in allNotNeedFileSet) {
+                    file.delete()
+                    logger.lifecycle(">>> incremental removed: ${file.name}")
+                }
+                return@forEach
             }
-            ?: return null
-        val worker = Worker(list.size, executor)
-        list.forEach { dir ->
             worker.submit {
-                dir.walkBottomUp().forEach {
+                file.walkBottomUp().forEach {
                     if (it.isDirectory) {
                         if (it.list().isNullOrEmpty()) {
                             it.delete()
