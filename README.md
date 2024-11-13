@@ -74,7 +74,7 @@
    
    subprojects {
        repositories {
-           maven { url 'https://jitpack.io' }
+           maven { setUrl("https://jitpack.io") }
        }
    }
    ```
@@ -159,7 +159,7 @@
        override fun scan(classNode: ClassNode) {
            // 扫描阶段，该阶段可以获取到所有过滤后需要处理的 class
            logger.lifecycle("step2：scan -->$classNode")
-           // 你可以在这里过收集需要处理的 class
+           // 你可以在这里收集需要处理的 class
            // 注意：该方法非多线程安全，内部处理记得按需加锁
        }
    
@@ -239,3 +239,4 @@ log 对应的具体含义：
 - **[了解 Gradle 和 Transform 点这（文章基于 AGP4）](https://blog.csdn.net/qq_35365635/article/details/120355777)**
 - **如果本项目给予了你帮助那就给个 start 吧。**
 - **如果对本项目有疑问欢迎提 issues。**
+- **如果想聊聊本库相关问题可加 Q 群 732198194（注明来源）**
