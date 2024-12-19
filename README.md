@@ -111,19 +111,18 @@
            loggerLevel = 2
        	// 挂载你所需的修改器，可以挂载多个，插件内部按顺序执行
            modifiers = arrayOf(
-               // 将 CustomModifier 添加到 bcu 中
-               CustomModifier::class.java,
+               // Your Modifier
            )
        }
-       // 不需要处理的 class 文件过滤器。
-       filterNot { variant, entryName ->
-           // 这里传 false 表示不过滤
-           // 请按需配置过滤，合理配置可提大幅升编译速度
+       filterNot = { variant, entryName ->
+          	// 自定义过滤规则
+           // 该配置会极大影响编译性能，具体见后面性能对比
+           // 返回 true 表示该 class 不进行 transform 处理
            false
        }
    }
    ```
-
+   
 3. `BCU` 会将需要保留的目标加上 `BCUKeep` 注解，因此只需如下配置即可
 
    ```tex
@@ -196,22 +195,11 @@
    
    bcu {
        config { variant ->
-           loggerLevel = 1
            // 在这里配置你的 Modifier 实现，多个 Modifier 会按顺序依次执行
            modifiers = arrayOf(
                // 将 CustomModifier 添加到 bcu 中
                CustomModifier::class.java,
            )
-       }
-       loggerLevel = 2
-       modifiers = arrayOf(
-           
-       )
-       filterNot = { variant, entryName ->
-          	// 自定义过滤规则
-           // 该配置会极大影响编译性能，具体见后面性能对比
-           // 返回 true 表示该 class 不进行 transform 处理
-           false
        }
    }
    
@@ -256,14 +244,14 @@ log 对应的具体含义：
 在新 `transform`  接口中你的输出只能是一个 `jar` 文件，这会导致如下耗时问题：
 
 1. 将 `class` 打进 `jar` 的操作只能是个单线程的 `IO` 操作，性能利用率极低。
-2. `jar` 本质是个 `zip` 包，默认不配置在 `class` 文件打入时还会有额外的压缩计算。
+2. `jar` 本质是个 `zip` 包，默认不配置压缩等级时在 `class` 文件打入过程还会有额外的压缩计算。
 3. `dexBuilderXXX`  任务无法处理 jar 输入的增量编译，使得任意代码改动都会造成该任务的全量编译。
 
 本库为了解决这些问题做了如下处理：
 
 1. 设置 `jar` 的压缩等级为不压缩，缩短 `transform` 时的压缩时间和 `dexBuilderXXX` 时的解压时间。
 1. 提供 `filter` 接口，减少需要进入 `transform` 的 `class` 数量，加快输出 `jar` 的速度，且减少由于 `jar` 导致的 `dexBuilderXXX` 任务缓存大面积失效问题。
-1. 由于 `filter` 接口缩减了 `transform` 输出的源码，因此这部分源码需要借由 `ScopedArtifactsOperation#toAppend` 接口输出，而 `append` 接口本身支持增量，且输出为直接的 `class` 文件目录，因此这部分输出对 `dexBuilderXXX` 任务来说是支持增量的。
+1. 由于 `filter` 接口缩减了 `transform` 输出的源码，因此这部分源码需要借由 `ScopedArtifactsOperation#toAppend` 接口输出，而基于 `append` 接口的 `Task` 本身可以支持增量，并且且输出为直接的 `class` 文件目录，而这部分输出对 `dexBuilderXXX` 任务来说是也支持增量的，因此最后所有 `filter` 出去的 `class` 就都支持增量编译了。
 
 在了解了本库对提升构建性能所做的处理后，相信你也能更加理解合理配置 `fliter` 的重要性。
 
